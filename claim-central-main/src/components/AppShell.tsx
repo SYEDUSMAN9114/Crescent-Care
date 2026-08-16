@@ -109,18 +109,9 @@ export function AppShell({
       <div className={`transition-[padding] duration-200 ${expanded ? "lg:pl-[232px]" : "lg:pl-[76px]"}`}>
         <header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 backdrop-blur-md">
           <div className="flex h-14 items-center gap-4 px-5">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <span className="font-display tracking-tight">Premier Insurance</span>
-              <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-accent-foreground">
-                Health
-              </span>
-            </div>
             <div className="ml-2 hidden items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground md:flex">
               <Search className="size-3.5" />
               Search claim, policy, member
-              <kbd className="ml-6 rounded border border-border bg-surface px-1.5 py-0.5 text-[10px]">
-                ⌘K
-              </kbd>
             </div>
             <div className="ml-auto flex items-center gap-3">
               <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">

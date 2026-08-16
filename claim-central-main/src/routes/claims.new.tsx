@@ -8,6 +8,7 @@ import {
   Plus,
   Trash2,
   Clock,
+  FileText,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { DocumentsPanel, type DocMode } from "@/components/DocumentsPanel";
@@ -151,6 +152,12 @@ function NewClaim() {
           >
             <Paperclip className="size-4" strokeWidth={1.75} /> Documents
           </button>
+          <Link
+            to="/claims/new/settlement"
+            className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium shadow-card transition-colors border-border bg-surface hover:bg-muted"
+          >
+            <FileText className="size-4" strokeWidth={1.75} /> Settlement
+          </Link>
           <button className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px">
             <Save className="size-4" strokeWidth={2} /> Save claim
           </button>

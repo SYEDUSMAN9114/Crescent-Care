@@ -360,16 +360,15 @@ function NewClaim() {
           </Section>
         </div>
 
-        {docMode === "split" ? (
-          <aside className="xl:sticky xl:top-20 xl:h-[calc(100vh-6rem)]">
-            <DocumentsPanel mode={docMode} onModeChange={setDocMode} />
-          </aside>
-        ) : null}
+        <aside
+          className={
+            docMode === "split" ? "xl:sticky xl:top-20 xl:h-[calc(100vh-6rem)]" : "contents"
+          }
+        >
+          <DocumentsPanel mode={docMode} onModeChange={setDocMode} />
+        </aside>
       </div>
 
-      {docMode !== "split" ? (
-        <DocumentsPanel mode={docMode} onModeChange={setDocMode} />
-      ) : null}
 
     </AppShell>
   );

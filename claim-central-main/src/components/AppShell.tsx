@@ -15,9 +15,32 @@ import {
 } from "lucide-react";
 import logo from "@/assets/crescent-logo.png";
 
-const nav = [
-  { to: "/", label: "Overview", icon: LayoutGrid, match: (p: string) => p === "/" },
-  { to: "/claims/new", label: "Claims", icon: FileStack, match: (p: string) => p.startsWith("/claims") },
+type NavLeaf = {
+  label: string;
+  icon: typeof LayoutGrid;
+  match: (p: string) => boolean;
+  to: string;
+  children?: undefined;
+};
+
+type NavParent = {
+  label: string;
+  icon: typeof LayoutGrid;
+  match: (p: string) => boolean;
+  to?: undefined;
+  children: { to: string; label: string }[];
+};
+
+type NavItem = NavLeaf | NavParent;
+
+const nav: NavItem[] = [
+  { to: "/", label: "Overview", icon: LayoutGrid, match: (p) => p === "/" },
+  {
+    label: "Claims",
+    icon: FileStack,
+    match: (p) => p.startsWith("/claims"),
+    children: [{ to: "/claims/new", label: "New Claim" }],
+  },
   { to: "/", label: "Providers", icon: Stethoscope, match: () => false },
   { to: "/", label: "Policies", icon: Building2, match: () => false },
   { to: "/", label: "Payments", icon: Receipt, match: () => false },
@@ -36,6 +59,7 @@ export function AppShell({
 }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [expanded, setExpanded] = useState(true);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,6 +120,55 @@ export function AppShell({
         <nav className="flex flex-1 flex-col gap-1">
           {nav.map((item) => {
             const active = item.match(path);
+
+            if (item.children) {
+              const open = openMenu === item.label;
+              return (
+                <div key={item.label} className="relative">
+                  <button
+                    onClick={() => setOpenMenu(open ? null : item.label)}
+                    className={`group relative flex w-full items-center gap-3 rounded-xl transition-colors ${
+                      expanded ? "px-3 py-2.5" : "size-11 justify-center"
+                    } ${
+                      active
+                        ? "bg-ink-foreground/10 text-ink-foreground"
+                        : "text-ink-muted hover:bg-ink-foreground/5 hover:text-ink-foreground"
+                    }`}
+                  >
+                    <item.icon className="size-[18px] shrink-0" strokeWidth={1.75} />
+                    {expanded ? (
+                      <>
+                        <span className="truncate text-sm font-medium">{item.label}</span>
+                        <ChevronDown
+                          className={`ml-auto size-3.5 shrink-0 transition-transform ${
+                            open ? "rotate-180" : ""
+                          }`}
+                        />
+                      </>
+                    ) : (
+                      <span className="pointer-events-none absolute left-14 z-40 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs text-ink-foreground opacity-0 shadow-lift transition-opacity group-hover:opacity-100">
+                        {item.label}
+                      </span>
+                    )}
+                  </button>
+                  {open && expanded && (
+                    <div className="ml-8 mt-1 flex flex-col gap-0.5">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.label}
+                          to={child.to}
+                          onClick={() => setOpenMenu(null)}
+                          className="rounded-lg px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-ink-foreground/5 hover:text-ink-foreground"
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.label}

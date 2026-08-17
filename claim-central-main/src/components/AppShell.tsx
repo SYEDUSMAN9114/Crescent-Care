@@ -61,11 +61,12 @@ export function AppShell({
   const [expanded, setExpanded] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
-  // Close any open dropdown only once navigation has actually happened,
-  // instead of closing it inside the Link's onClick (which fired before
-  // navigation completed and made it look like it "just closed").
+  // Keep the dropdown open whenever we're on a route that belongs to it
+  // (e.g. /claims/new), and closed otherwise — instead of always closing
+  // it on every navigation.
   useEffect(() => {
-    setOpenMenu(null);
+    const match = nav.find((item) => item.children && item.match(path));
+    setOpenMenu(match ? match.label : null);
   }, [path]);
 
   return (
@@ -164,7 +165,11 @@ export function AppShell({
                         <Link
                           key={child.label}
                           to={child.to}
-                          className="rounded-lg px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-ink-foreground/5 hover:text-ink-foreground"
+                          className={`rounded-lg px-3 py-2 text-sm transition-colors ${
+                            path === child.to
+                              ? "bg-ink-foreground/10 text-ink-foreground"
+                              : "text-ink-muted hover:bg-ink-foreground/5 hover:text-ink-foreground"
+                          }`}
                         >
                           {child.label}
                         </Link>

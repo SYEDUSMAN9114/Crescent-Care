@@ -39,20 +39,45 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-md">
+        <div className="flex h-14 items-center gap-4 px-5">
+          <Link to="/" className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink-foreground/10">
+            <img src={logo} alt="Crescent Care" className="size-7 object-contain" />
+          </Link>
+            <span className="truncate font-display text-[15px] font-bold text-ink">
+              Crescent Care
+            </span>
+          <div className="ml-2 hidden items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground md:flex">
+            <Search className="size-3.5" />
+            Search claim, policy, member
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
+              Year 2026 <ChevronDown className="size-3.5" />
+            </button>
+            <button className="relative grid size-8 place-items-center rounded-lg hover:bg-muted">
+              <Bell className="size-4" strokeWidth={1.75} />
+              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
+            </button>
+            <div className="flex items-center gap-2 border-l border-border pl-3">
+              <div className="grid size-8 place-items-center rounded-full bg-ink text-[11px] font-semibold text-ink-foreground">
+                FK
+              </div>
+              <div className="hidden leading-tight sm:block">
+                <div className="text-xs font-semibold">Faizan Khan</div>
+                <div className="text-[11px] text-muted-foreground">Claims Officer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col bg-ink py-4 transition-[width] duration-200 lg:flex ${
+        className={`fixed inset-y-0 left-0 top-14 z-30 hidden flex-col bg-ink py-4 transition-[width] duration-200 lg:flex ${
           expanded ? "w-[232px] px-3" : "w-[76px] items-center px-2"
         }`}
       >
         <div className={`mb-6 flex items-center gap-2.5 ${expanded ? "px-1" : "flex-col"}`}>
-          <Link to="/" className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink-foreground/10">
-            <img src={logo.url} alt="Crescent Care" className="size-7 object-contain" />
-          </Link>
-          {expanded && (
-            <span className="truncate font-display text-[15px] font-semibold text-ink-foreground">
-              Crescent Care
-            </span>
-          )}
           <button
             onClick={() => setExpanded((e) => !e)}
             title={expanded ? "Collapse sidebar" : "Expand sidebar"}
@@ -106,35 +131,8 @@ export function AppShell({
         </div>
       </aside>
 
-      <div className={`transition-[padding] duration-200 ${expanded ? "lg:pl-[232px]" : "lg:pl-[76px]"}`}>
-        <header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 backdrop-blur-md">
-          <div className="flex h-14 items-center gap-4 px-5">
-            <div className="ml-2 hidden items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground md:flex">
-              <Search className="size-3.5" />
-              Search claim, policy, member
-            </div>
-            <div className="ml-auto flex items-center gap-3">
-              <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
-                Year 2026 <ChevronDown className="size-3.5" />
-              </button>
-              <button className="relative grid size-8 place-items-center rounded-lg hover:bg-muted">
-                <Bell className="size-4" strokeWidth={1.75} />
-                <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
-              </button>
-              <div className="flex items-center gap-2 border-l border-border pl-3">
-                <div className="grid size-8 place-items-center rounded-full bg-ink text-[11px] font-semibold text-ink-foreground">
-                  FK
-                </div>
-                <div className="hidden leading-tight sm:block">
-                  <div className="text-xs font-semibold">Faizan Khan</div>
-                  <div className="text-[11px] text-muted-foreground">Claims Officer</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="px-5 pb-16 pt-6">
+      <div className={`pt-5 transition-[padding] duration-200 ${expanded ? "lg:pl-[232px]" : "lg:pl-[76px]"}`}>
+        <div className="px-5 pb-16">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold">{title}</h1>

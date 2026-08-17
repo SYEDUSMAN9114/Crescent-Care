@@ -16,11 +16,11 @@ import {
 import logo from "@/assets/crescent-logo.png";
 
 const nav = [
-  { to: "/", label: "Overview", icon: LayoutGrid },
-  { to: "/", label: "Claims", icon: FileStack },
-  { to: "/", label: "Providers", icon: Stethoscope },
-  { to: "/", label: "Policies", icon: Building2 },
-  { to: "/", label: "Payments", icon: Receipt },
+  { to: "/", label: "Overview", icon: LayoutGrid, match: (p: string) => p === "/" },
+  { to: "/claims/new", label: "Claims", icon: FileStack, match: (p: string) => p.startsWith("/claims") },
+  { to: "/", label: "Providers", icon: Stethoscope, match: () => false },
+  { to: "/", label: "Policies", icon: Building2, match: () => false },
+  { to: "/", label: "Payments", icon: Receipt, match: () => false },
 ];
 
 export function AppShell({
@@ -94,8 +94,8 @@ export function AppShell({
         </div>
 
         <nav className="flex flex-1 flex-col gap-1">
-          {nav.map((item, i) => {
-            const active = i === (path === "/" ? 1 : 1);
+          {nav.map((item) => {
+            const active = item.match(path);
             return (
               <Link
                 key={item.label}

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutGrid,
   FileStack,
@@ -60,6 +60,13 @@ export function AppShell({
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [expanded, setExpanded] = useState(true);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+  // Close any open dropdown only once navigation has actually happened,
+  // instead of closing it inside the Link's onClick (which fired before
+  // navigation completed and made it look like it "just closed").
+  useEffect(() => {
+    setOpenMenu(null);
+  }, [path]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -157,7 +164,6 @@ export function AppShell({
                         <Link
                           key={child.label}
                           to={child.to}
-                          onClick={() => setOpenMenu(null)}
                           className="rounded-lg px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-ink-foreground/5 hover:text-ink-foreground"
                         >
                           {child.label}

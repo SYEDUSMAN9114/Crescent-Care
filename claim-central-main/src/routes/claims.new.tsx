@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,10 +11,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Loader2,
-  UserRound,
   ShieldCheck,
-  UploadCloud,
-  File as FileIcon,
   X,
   AlertTriangle,
 } from "lucide-react";
@@ -28,13 +25,9 @@ import {
   requiredDocumentOptions,
   type policy,
   type dependent,
+  causeOfLossOptions,
+  benefitsByCause,
 } from "@/lib/policy-data";
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export const Route = createFileRoute("/claims/new")({
   head: () => ({
@@ -200,12 +193,11 @@ function Section({
 
 /* ---------------------------------- wizard steps ---------------------------------- */
 
-type StepId = "identify" | "policy" | "details" | "documents";
+type StepId = "identify" | "details" | "documents";
 type IdMode = "card" | "cnic";
 
 const STEPS: { id: StepId; label: string }[] = [
   { id: "identify", label: "Client Details" },
-  { id: "policy", label: "Policy & member" },
   { id: "details", label: "Claim details" },
   { id: "documents", label: "Documents & remarks" },
 ];
@@ -216,7 +208,6 @@ function NewClaim() {
 
   // wizard progress
   const [step, setStep] = useState<StepId>("identify");
-  const [policyUnlocked, setPolicyUnlocked] = useState(false);
   const [detailsUnlocked, setDetailsUnlocked] = useState(false);
   const [documentsUnlocked, setDocumentsUnlocked] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -238,20 +229,16 @@ function NewClaim() {
   );
 
   const [causeOfLoss, setCauseOfLoss] = useState("");
+  const [selectedBenefit, setSelectedBenefit] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [treatment, setTreatment] = useState("");
   const [stay, setStay] = useState("");
-  const [benefits, setBenefits] = useState("");
   const [reqAmount, setReqAmount] = useState("");
   const [approveAmount, setApproveAmount] = useState("");
   const [hospital, setHospital] = useState("");
   const [status, setStatus] = useState("");
 
   // step 3 — documents & remarks
-  // Shared with the header "Documents" panel's "Supporting Documents" tab —
-  // whichever place a file is attached, it shows up in both.
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [sharedFiles, setSharedFiles] = useState<File[]>([]);
   const [requestedDocs, setRequestedDocs] = useState<string[]>([]);
   const [otherDocNote, setOtherDocNote] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -264,21 +251,14 @@ function NewClaim() {
     );
   };
 
-  const handleFilesSelected = (fileList: FileList | null) => {
-    if (!fileList?.length) return;
-    setSharedFiles((prev) => [...prev, ...Array.from(fileList)]);
-  };
-
-  const removeFile = (file: File) => {
-    setSharedFiles((prev) => prev.filter((f) => f !== file));
-  };
-
   const handleIdModeChange = (mode: IdMode) => {
     setIdMode(mode);
     setCardOrCnic("");
     setFetchState("idle");
     setPolicy(null);
-    setPolicyUnlocked(false);
+    setPatientId("");
+    setCauseOfLoss("");
+    setSelectedBenefit("");
   };
 
   const handleFetch = () => {
@@ -293,18 +273,24 @@ function NewClaim() {
       if (!record) {
         setFetchState("error");
         setPolicy(null);
-        setPolicyUnlocked(false);
         return;
       }
       setFetchState("idle");
       setPolicy(record);
       setDept(record.deptList[0] ?? "");
-      setPolicyUnlocked(true);
+      setPatientId("");
+      setCauseOfLoss("");
+      setSelectedBenefit("");
     }, 500);
   };
 
   const handlePatientSelect = (id: string) => {
     setPatientId(id);
+  };
+
+  const handleCauseSelect = (cause: string) => {
+    setCauseOfLoss(cause);
+    setSelectedBenefit("");
   };
 
   const goToDetails = () => {
@@ -314,7 +300,7 @@ function NewClaim() {
     }
   };
 
-  const requiredDetailFields = [causeOfLoss, diagnosis, treatment, stay, hospital, status];
+  const requiredDetailFields = [causeOfLoss, selectedBenefit, diagnosis, treatment, stay, hospital, status];
   const coreFieldsComplete = !!patient && requiredDetailFields.every((v) => v.trim() !== "");
 
   const goToDocuments = () => {
@@ -332,6 +318,13 @@ function NewClaim() {
   const reviewerNameValid = !reviewerNameRequired || reviewerName.trim() !== "";
 
   const detailsComplete = coreFieldsComplete && remarksValid && reviewerNameValid;
+
+  const documentOptions =
+    status === "Approve"
+      ? ["CNIC", "Card", "Intimation Form"]
+      : status === "Requirement Needed"
+        ? requiredDocumentOptions
+        : [];
 
   const handleSubmit = () => {
     setAttemptedSubmit(true);
@@ -401,13 +394,11 @@ function NewClaim() {
           <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1.5 shadow-card">
             {STEPS.map((s, i) => {
               const locked =
-                (s.id === "policy" && !policyUnlocked) ||
                 (s.id === "details" && !detailsUnlocked) ||
                 (s.id === "documents" && !documentsUnlocked);
               const active = step === s.id;
               const done =
-                (s.id === "identify" && policyUnlocked) ||
-                (s.id === "policy" && detailsUnlocked) ||
+                (s.id === "identify" && detailsUnlocked) ||
                 (s.id === "details" && documentsUnlocked) ||
                 (s.id === "documents" && submitted);
               return (
@@ -546,78 +537,48 @@ function NewClaim() {
                       wide
                     />
                   </div>
+                  <div className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                    <SelectField
+                      label="Member"
+                      required
+                      value={patientId}
+                      onChange={handlePatientSelect}
+                      placeholder="Choose family member..."
+                      options={policy.dependent.map((item) => ({
+                        value: item.id,
+                        label: `${item.name} - ${item.relation}`,
+                      }))}
+                    />
+                    <SelectField
+                      label="Cause of loss"
+                      required
+                      value={causeOfLoss}
+                      onChange={handleCauseSelect}
+                      placeholder="Choose cause of loss..."
+                      options={causeOfLossOptions.map((cause) => ({ value: cause, label: cause }))}
+                    />
+                    <SelectField
+                      label="Benefit"
+                      required
+                      value={selectedBenefit}
+                      onChange={setSelectedBenefit}
+                      disabled={!causeOfLoss}
+                      placeholder="Choose benefit..."
+                      options={causeOfLoss
+                        ? benefitsByCause[causeOfLoss as (typeof causeOfLossOptions)[number]].map((benefit) => ({
+                            value: benefit,
+                            label: benefit,
+                          }))
+                        : []}
+                    />
+                  </div>
                 </div>
               )}
 
               <div className="mt-5 flex justify-end">
                 <button
-                  onClick={() => policy && setStep("policy")}
-                  disabled={!policy}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Next: Policy &amp; member <ChevronRight className="size-4" />
-                </button>
-              </div>
-            </Section>
-          )}
-
-          {/* ---- step 2: policy & member ---- */}
-          {step === "policy" && policy && (
-            <Section
-              step="2"
-              title="Policy & member"
-              desc="Choose the patient this claim is for and review their cover."
-              right={
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                  <ShieldCheck className="size-3" /> Policy matched
-                </span>
-              }
-            >
-              <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-                <SelectField
-                  label="Patient"
-                  required
-                  wide
-                  value={patientId}
-                  onChange={handlePatientSelect}
-                  placeholder="Choose family member…"
-                  options={policy.dependent.map((item) => ({
-                    value: item.id,
-                    label: `${item.name} — ${item.relation}`,
-                  }))}
-                />
-              </div>
-
-              {patient && (
-                <div className="mt-6 border-t border-border pt-5">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <UserRound className="size-4 text-primary" />
-                    <span className="text-sm font-semibold">{patient.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {patient.relation} · {patient.age} · {patient.gender} · DOB {patient.dob}
-                    </span>
-                  </div>
-                  <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-                    <Field label="Healthcare no." value={patient.healthcareNo} readOnly />
-                    <Field label="Benefit" value={patient.benefit} readOnly />
-                    <Field label="Balance / limit" value={patient.balanceLimit} readOnly />
-                    <Field label="Room entitlement" value={patient.roomEntitlement} readOnly />
-                    <TagList label="Inclusion" items={policy.inclusion} />
-                    <TagList label="Exclusion" items={policy.exclusion} />
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-5 flex items-center justify-between">
-                <button
-                  onClick={() => setStep("identify")}
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
-                >
-                  <ChevronLeft className="size-4" /> Back
-                </button>
-                <button
                   onClick={goToDetails}
-                  disabled={!patient}
+                  disabled={!patient || !causeOfLoss || !selectedBenefit}
                   className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Next: Claim details <ChevronRight className="size-4" />
@@ -629,33 +590,11 @@ function NewClaim() {
           {/* ---- step 3: claim details ---- */}
           {step === "details" && policy && patient && (
             <Section
-              step="3"
+              step="2"
               title="Claim details"
               desc="Diagnosis, treatment, amounts and the decision on this claim."
             >
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="rounded-xl border border-border bg-surface-2 p-3">
-                  <div className="label-cap">Benefit</div>
-                  <div className="mt-1 text-sm font-semibold">{patient.benefit}</div>
-                </div>
-                <div className="rounded-xl border border-border bg-surface-2 p-3">
-                  <div className="label-cap">Balance / limit</div>
-                  <div className="num mt-1 text-sm font-semibold">{patient.balanceLimit}</div>
-                </div>
-                <div className="rounded-xl border border-border bg-surface-2 p-3">
-                  <div className="label-cap">Room entitlement limit</div>
-                  <div className="mt-1 text-sm font-semibold">{patient.roomEntitlement}</div>
-                </div>
-              </div>
-
               <div className="mt-6 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-                <Field
-                  label="Cause of loss"
-                  value={causeOfLoss}
-                  required
-                  onChange={setCauseOfLoss}
-                  placeholder="e.g. Maternity C-Section"
-                />
                 <Field
                   label="Diagnosis"
                   value={diagnosis}
@@ -678,13 +617,6 @@ function NewClaim() {
                   type="number"
                   onChange={setStay}
                   placeholder="e.g. 2"
-                />
-                <Field
-                  label="Benefits claimed"
-                  value={benefits}
-                  onChange={setBenefits}
-                  placeholder="e.g. Room & board, surgeon fee"
-                  wide
                 />
                 <Field
                   label="Requested amount"
@@ -718,7 +650,7 @@ function NewClaim() {
 
               <div className="mt-5 flex items-center justify-between">
                 <button
-                  onClick={() => setStep("policy")}
+                  onClick={() => setStep("identify")}
                   className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
                 >
                   <ChevronLeft className="size-4" /> Back
@@ -737,72 +669,10 @@ function NewClaim() {
           {/* ---- step 4: documents & remarks ---- */}
           {step === "documents" && policy && patient && (
             <Section
-              step="4"
+              step="3"
               title="Documents & remarks"
               desc="Attach whatever's on file, flag anything still needed, then save."
             >
-              {/* ---- supporting documents ---- */}
-              <div>
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold">Supporting documents</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Shared with the Documents panel above — a file attached here or there shows
-                    up in both places.
-                  </p>
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    handleFilesSelected(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    handleFilesSelected(e.dataTransfer.files);
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-2 px-4 py-6 text-center text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
-                >
-                  <UploadCloud className="size-5" />
-                  <span className="text-xs font-medium">
-                    Click to upload documents, or drag files here
-                  </span>
-                </div>
-
-                {sharedFiles.length > 0 && (
-                  <ul className="mt-3 space-y-1.5">
-                    {sharedFiles.map((f, i) => (
-                      <li
-                        key={`${f.name}-${f.size}-${i}`}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-xs"
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate font-medium">{f.name}</span>
-                          <span className="num shrink-0 text-muted-foreground">
-                            {formatBytes(f.size)}
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(f)}
-                          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
               {/* ---- remarks & requirement ---- */}
               <div className="mt-6 border-t border-border pt-5">
                 <div className="mb-3">
@@ -814,7 +684,7 @@ function NewClaim() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-                  {requiredDocumentOptions.map((doc) => (
+                  {documentOptions.map((doc) => (
                     <label
                       key={doc}
                       className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
@@ -937,7 +807,11 @@ function NewClaim() {
               setBenefitMode(mode);
               if (mode === "split") setDocMode("closed");
             }}
-            causeOfLoss={causeOfLoss || patient?.benefit}
+            causeOfLoss={causeOfLoss}
+            selectedBenefit={selectedBenefit}
+            memberName={patient?.name}
+            underwritingTerms={policy?.underwritingTerms}
+            selectedMember={patient}
           />
         </aside>
       </div>

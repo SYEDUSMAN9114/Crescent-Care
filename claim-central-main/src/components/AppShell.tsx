@@ -71,14 +71,15 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-md">
+      <header className="relative sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur-md">
         <div className="flex h-14 items-center gap-4 px-5">
-          <Link to="/" className="grid size-10 shrink-0 place-items-center rounded-xl bg-ink-foreground/10">
-            <img src={logo} alt="Crescent Care" className="size-7 object-contain" />
+          <Link
+            to="/"
+            className="relative z-10 grid size-10 shrink-0 place-items-center rounded-xl bg-ink-foreground/10"
+          >
+            <img src={logo} alt="Crescent Care" className="block size-7 object-contain" />
           </Link>
-            <span className="truncate font-display text-[15px] font-bold text-ink">
-              Crescent Care
-            </span>
+          <span className="truncate font-display text-[15px] font-bold text-ink">Crescent Care</span>
           <div className="ml-2 hidden items-center gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground md:flex">
             <Search className="size-3.5" />
             Search claim, policy, member

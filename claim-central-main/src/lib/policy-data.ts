@@ -9,7 +9,6 @@ export interface dependent {
   age: number;
   gender: "Male" | "Female";
   healthcareNo: string;
-  benefit: string;
   balanceLimit: string;
   roomEntitlement: string;
 }
@@ -26,10 +25,27 @@ export interface policy {
     designation: string;
   };
   deptList: string[];
-  inclusion: string[];
-  exclusion: string[];
+  underwritingTerms: string[];
   dependent: dependent[];
 }
+
+export const causeOfLossOptions = [
+  "OPD",
+  "IPD",
+  "Emergency",
+  "Maternity",
+  "Special Case",
+  "Other",
+] as const;
+
+export const benefitsByCause: Record<(typeof causeOfLossOptions)[number], string[]> = {
+  OPD: ["Consultation", "Diagnostics", "Medicines", "Dental Services"],
+  IPD: ["Room & Board", "Surgery", "Diagnostics", "Specialist Services"],
+  Emergency: ["Emergency Room", "Ambulance", "Accident Treatment", "Emergency Surgery"],
+  Maternity: ["DNC", "Abortion", "Normal Delivery", "C-Section", "Prenatal Care"],
+  "Special Case": ["PET Scan", "Dentistry Services", "Physiotherapy", "Rehabilitation"],
+  Other: ["PET Scan", "Dentistry Services", "Diagnostics", "Custom Treatment"],
+};
 
 export const policyDatabase: policy[] = [
   {
@@ -44,8 +60,7 @@ export const policyDatabase: policy[] = [
       designation: "Site Supervisor",
     },
     deptList: ["Operations", "Field Services", "HSE"],
-    inclusion: ["Hospitalization", "Maternity", "Day Care", "Emergency"],
-    exclusion: ["Cosmetic Surgery", "Dental (non-accidental)", "Infertility"],
+    underwritingTerms: ["PET Scan", "Dentistry Services", "Physiotherapy", "Pre-authorization required"],
     dependent: [
       {
         id: "FM-0046-0",
@@ -55,7 +70,6 @@ export const policyDatabase: policy[] = [
         age: 41,
         gender: "Male",
         healthcareNo: "GC25-EHWM-1100-0046",
-        benefit: "Hospitalization",
         balanceLimit: "80,000",
         roomEntitlement: "10,000",
       },
@@ -67,7 +81,6 @@ export const policyDatabase: policy[] = [
         age: 36,
         gender: "Female",
         healthcareNo: "GC25-EHWM-1100-0046-1",
-        benefit: "Caesarean Section",
         balanceLimit: "80,000",
         roomEntitlement: "10,000",
       },
@@ -79,7 +92,6 @@ export const policyDatabase: policy[] = [
         age: 11,
         gender: "Female",
         healthcareNo: "GC25-EHWM-1100-0046-2",
-        benefit: "Hospitalization",
         balanceLimit: "40,000",
         roomEntitlement: "10,000",
       },
@@ -97,8 +109,7 @@ export const policyDatabase: policy[] = [
       designation: "Logistics Coordinator",
     },
     deptList: ["Logistics", "Customer Service", "Finance"],
-    inclusion: ["Hospitalization", "Out Patient Care", "Maternity"],
-    exclusion: ["Cosmetic Surgery", "Self-inflicted injury"],
+    underwritingTerms: ["PET Scan", "Dental services", "Pre-existing condition review"],
     dependent: [
       {
         id: "FM-0231-0",
@@ -108,7 +119,6 @@ export const policyDatabase: policy[] = [
         age: 34,
         gender: "Female",
         healthcareNo: "GC25-ONEP-0231-0000",
-        benefit: "Out Patient Care",
         balanceLimit: "30,000",
         roomEntitlement: "Semi-private",
       },
@@ -120,7 +130,6 @@ export const policyDatabase: policy[] = [
         age: 8,
         gender: "Male",
         healthcareNo: "GC25-ONEP-0231-0001",
-        benefit: "Hospitalization",
         balanceLimit: "30,000",
         roomEntitlement: "Semi-private",
       },

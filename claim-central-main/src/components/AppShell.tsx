@@ -83,7 +83,11 @@ export function AppShell({
           >
             <img src={logo} alt="Crescent Care" className="block size-7 object-contain" />
           </Link>
+<<<<<<< HEAD
           <span className="truncate font-display text-[20px] font-bold text-ink">Crescent Care</span>
+=======
+          <span className="truncate font-display text-[15px] font-bold text-ink">Crescent Care</span>
+>>>>>>> 4dd0c99959c40df8c8faa0cf778e16460ca7810b
           <div className="ml-auto flex items-center gap-3">
             <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
               Year 2026 <ChevronDown className="size-3.5" />

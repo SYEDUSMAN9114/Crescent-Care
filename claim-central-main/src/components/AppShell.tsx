@@ -39,7 +39,11 @@ const nav: NavItem[] = [
     label: "Claims",
     icon: FileStack,
     match: (p) => p.startsWith("/claims"),
-    children: [{ to: "/claims/new", label: "New Claim" }],
+    children: [
+      { to: "/claims/list", label: "Claim List" },
+      { to: "/claims/new", label: "New Claim" },
+      { to: "/claims/new/settlement", label: "Settlement" },
+    ],
   },
   { to: "/", label: "Providers", icon: Stethoscope, match: () => false },
   { to: "/", label: "Policies", icon: Building2, match: () => false },

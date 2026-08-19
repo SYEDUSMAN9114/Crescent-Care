@@ -1,18 +1,40 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   Save,
   Paperclip,
-  Search,
-  Plus,
-  Trash2,
-  Clock,
   FileText,
+  Lock,
+  Check,
+  ChevronRight,
+  ChevronLeft,
+  Loader2,
+  UserRound,
+  ShieldCheck,
+  UploadCloud,
+  File as FileIcon,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { DocumentsPanel, type DocMode } from "@/components/DocumentsPanel";
-import { money } from "@/lib/claims-data";
+import { BenefitsPanel, type BenefitMode } from "@/components/BenefitsPanel";
+import {
+  lookupPolicy,
+  hospitalList,
+  claimStatusOptions,
+  requiredDocumentOptions,
+  type policy,
+  type dependent,
+} from "@/lib/policy-data";
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export const Route = createFileRoute("/claims/new")({
   head: () => ({
@@ -36,6 +58,8 @@ export const Route = createFileRoute("/claims/new")({
   component: NewClaim,
 });
 
+/* ---------------------------------- field bits ---------------------------------- */
+
 function Field({
   label,
   value,
@@ -43,13 +67,19 @@ function Field({
   readOnly,
   wide,
   hint,
+  onChange,
+  placeholder,
+  type = "text",
 }: {
   label: string;
-  value?: string;
+  value?: string | number;
   required?: boolean;
   readOnly?: boolean;
   wide?: boolean;
   hint?: string;
+  onChange?: (v: string) => void;
+  placeholder?: string;
+  type?: string;
 }) {
   return (
     <label className={`block ${wide ? "sm:col-span-2" : ""}`}>
@@ -58,13 +88,78 @@ function Field({
         {required && <span className="text-destructive">*</span>}
       </span>
       <input
-        defaultValue={value}
+        type={type}
+        value={value ?? ""}
+        placeholder={placeholder}
         readOnly={readOnly}
         disabled={readOnly}
+        onChange={(e) => onChange?.(e.target.value)}
         className="field-underline mt-0.5 w-full text-sm font-medium"
       />
       {hint && <span className="mt-1 block text-[11px] text-muted-foreground">{hint}</span>}
     </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  required,
+  onChange,
+  options,
+  placeholder = "Select…",
+  disabled,
+  wide,
+}: {
+  label: string;
+  value: string;
+  required?: boolean;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  disabled?: boolean;
+  wide?: boolean;
+}) {
+  return (
+    <label className={`block ${wide ? "sm:col-span-2" : ""}`}>
+      <span className="label-cap flex items-center gap-1">
+        {label}
+        {required && <span className="text-destructive">*</span>}
+      </span>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="field-underline mt-0.5 w-full bg-transparent text-sm font-medium"
+      >
+        <option value="" disabled>
+          {placeholder}
+        </option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TagList({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div className="block sm:col-span-2">
+      <span className="label-cap">{label}</span>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {items.map((i) => (
+          <span
+            key={i}
+            className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+          >
+            {i}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -103,37 +198,151 @@ function Section({
   );
 }
 
-const lines = [
-  {
-    no: 1,
-    date: "02/01/2026",
-    main: "CPT",
-    service: "CPT",
-    procedure: "#4649 — Miscellaneous",
-    rate: 999999999,
-    bill: 80000,
-    payable: 80000,
-    excess: 0,
-    withheld: 0,
-    deductible: 0,
-  },
+/* ---------------------------------- wizard steps ---------------------------------- */
+
+type StepId = "identify" | "policy" | "details" | "documents";
+type IdMode = "card" | "cnic";
+
+const STEPS: { id: StepId; label: string }[] = [
+  { id: "identify", label: "Client Details" },
+  { id: "policy", label: "Policy & member" },
+  { id: "details", label: "Claim details" },
+  { id: "documents", label: "Documents & remarks" },
 ];
 
 function NewClaim() {
-  const [tab, setTab] = useState<"payment" | "recovery" | "coinsurer">("payment");
   const [docMode, setDocMode] = useState<DocMode>("closed");
-  const totals = useMemo(
-    () => ({
-      bill: lines.reduce((s, l) => s + l.bill, 0),
-      payable: lines.reduce((s, l) => s + l.payable, 0),
-    }),
-    [],
+  const [benefitMode, setBenefitMode] = useState<BenefitMode>("closed");
+
+  // wizard progress
+  const [step, setStep] = useState<StepId>("identify");
+  const [policyUnlocked, setPolicyUnlocked] = useState(false);
+  const [detailsUnlocked, setDetailsUnlocked] = useState(false);
+  const [documentsUnlocked, setDocumentsUnlocked] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // step 1 — identification
+  const [claimNo] = useState("00001");
+  const [entryNo] = useState("1");
+  const [idMode, setIdMode] = useState<IdMode>("card");
+  const [cardOrCnic, setCardOrCnic] = useState("");
+  const [fetchState, setFetchState] = useState<"idle" | "loading" | "error">("idle");
+
+  // step 2 — policy & member (+ claim details, merged)
+  const [policy, setPolicy] = useState<policy | null>(null);
+  const [dept, setDept] = useState("");
+  const [patientId, setPatientId] = useState("");
+  const patient: dependent | undefined = useMemo(
+    () => policy?.dependent.find((item) => item.id === patientId),
+    [policy, patientId],
   );
+
+  const [causeOfLoss, setCauseOfLoss] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
+  const [treatment, setTreatment] = useState("");
+  const [stay, setStay] = useState("");
+  const [benefits, setBenefits] = useState("");
+  const [reqAmount, setReqAmount] = useState("");
+  const [approveAmount, setApproveAmount] = useState("");
+  const [hospital, setHospital] = useState("");
+  const [status, setStatus] = useState("");
+
+  // step 3 — documents & remarks
+  // Shared with the header "Documents" panel's "Supporting Documents" tab —
+  // whichever place a file is attached, it shows up in both.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [sharedFiles, setSharedFiles] = useState<File[]>([]);
+  const [requestedDocs, setRequestedDocs] = useState<string[]>([]);
+  const [otherDocNote, setOtherDocNote] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [reviewerName, setReviewerName] = useState("");
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
+  const toggleRequestedDoc = (doc: string) => {
+    setRequestedDocs((prev) =>
+      prev.includes(doc) ? prev.filter((d) => d !== doc) : [...prev, doc],
+    );
+  };
+
+  const handleFilesSelected = (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    setSharedFiles((prev) => [...prev, ...Array.from(fileList)]);
+  };
+
+  const removeFile = (file: File) => {
+    setSharedFiles((prev) => prev.filter((f) => f !== file));
+  };
+
+  const handleIdModeChange = (mode: IdMode) => {
+    setIdMode(mode);
+    setCardOrCnic("");
+    setFetchState("idle");
+    setPolicy(null);
+    setPolicyUnlocked(false);
+  };
+
+  const handleFetch = () => {
+    if (!cardOrCnic.trim()) {
+      setFetchState("error");
+      return;
+    }
+    setFetchState("loading");
+    // simulate a lookup call against the policy master
+    setTimeout(() => {
+      const record = lookupPolicy(cardOrCnic);
+      if (!record) {
+        setFetchState("error");
+        setPolicy(null);
+        setPolicyUnlocked(false);
+        return;
+      }
+      setFetchState("idle");
+      setPolicy(record);
+      setDept(record.deptList[0] ?? "");
+      setPolicyUnlocked(true);
+    }, 500);
+  };
+
+  const handlePatientSelect = (id: string) => {
+    setPatientId(id);
+  };
+
+  const goToDetails = () => {
+    if (patient) {
+      setDetailsUnlocked(true);
+      setStep("details");
+    }
+  };
+
+  const requiredDetailFields = [causeOfLoss, diagnosis, treatment, stay, hospital, status];
+  const coreFieldsComplete = !!patient && requiredDetailFields.every((v) => v.trim() !== "");
+
+  const goToDocuments = () => {
+    if (coreFieldsComplete) {
+      setDocumentsUnlocked(true);
+      setStep("documents");
+    }
+  };
+
+  // remarks are optional on Approve, but mandatory on Reject / Requirement Needed;
+  // a reviewer name is additionally required when the case is rejected
+  const remarksRequired = status === "Reject" || status === "Requirement Needed";
+  const reviewerNameRequired = status === "Reject";
+  const remarksValid = !remarksRequired || remarks.trim() !== "";
+  const reviewerNameValid = !reviewerNameRequired || reviewerName.trim() !== "";
+
+  const detailsComplete = coreFieldsComplete && remarksValid && reviewerNameValid;
+
+  const handleSubmit = () => {
+    setAttemptedSubmit(true);
+    if (!detailsComplete) return;
+    setSubmitted(true);
+  };
 
   return (
     <AppShell
       title="New Claim Intimation"
-      subtitle="Claim no. 00001 · Entry 1 · Registered 02/01/2026 · Claim day 3"
+      subtitle={`Claim no. ${claimNo} · Entry ${entryNo}${policy ? ` · ${policy.clientName}` : ""}`}
       actions={
         <div className="flex items-center gap-2">
           <Link
@@ -143,7 +352,10 @@ function NewClaim() {
             <ArrowLeft className="size-4" strokeWidth={1.75} /> Back
           </Link>
           <button
-            onClick={() => setDocMode((m) => (m === "closed" ? "split" : "closed"))}
+            onClick={() => {
+              setBenefitMode("closed");
+              setDocMode((m) => (m === "closed" ? "split" : "closed"));
+            }}
             className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium shadow-card transition-colors ${
               docMode !== "closed"
                 ? "border-primary/30 bg-primary/10 text-primary"
@@ -152,231 +364,583 @@ function NewClaim() {
           >
             <Paperclip className="size-4" strokeWidth={1.75} /> Documents
           </button>
+          <button
+            onClick={() => {
+              setDocMode("closed");
+              setBenefitMode((m) => (m === "closed" ? "split" : "closed"));
+            }}
+            className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium shadow-card transition-colors ${
+              benefitMode !== "closed"
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-border bg-surface hover:bg-muted"
+            }`}
+          >
+            <ShieldCheck className="size-4" strokeWidth={1.75} /> Benefits
+          </button>
           <Link
             to="/claims/new/settlement"
             className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium shadow-card transition-colors border-border bg-surface hover:bg-muted"
           >
             <FileText className="size-4" strokeWidth={1.75} /> Settlement
           </Link>
-          <button className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px">
-            <Save className="size-4" strokeWidth={2} /> Save claim
+          <button
+            onClick={handleSubmit}
+            disabled={!coreFieldsComplete}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+          >
+            <Save className="size-4" strokeWidth={2} /> Save &amp; submit
           </button>
         </div>
       }
     >
       <div
-        className={`grid gap-5 ${docMode === "split" ? "xl:grid-cols-[1fr_460px]" : "grid-cols-1"}`}
+        className={`grid gap-5 ${docMode === "split" || benefitMode === "split" ? "xl:grid-cols-[1fr_460px]" : "grid-cols-1"}`}
       >
         <div className="min-w-0 space-y-5">
-          <Section
-            step="1"
-            title="Claim header"
-            desc="Who is claiming, when it was intimated and under which authorization."
-            right={
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                <Clock className="size-3" /> Pre-Authorization
-              </span>
-            }
-          >
-            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Claim No." value="00001" readOnly />
-              <Field label="Entry No." value="1" readOnly />
-              <Field label="Intimation date" value="02/01/2026 00:00" required />
-              <Field label="Admit / visit date" value="01/01/2026" required />
-              <Field label="Claim receive date" value="01/01/2026" required />
-              <Field
-                label="Client name"
-                value="Expert Hazard and Waste Management"
-                required
-                wide
-                hint="Press F8 to search clients"
-              />
-              <Field label="Cause of loss" value="Maternity C-Section" readOnly />
-              <Field label="Diagnose" value="LSCS" hint="ICD code linked" />
-              <Field label="Discharge date" value="03/01/2026" />
-              <Field label="MR / Bill no." />
-              <Field label="Old claim no." />
-              <Field label="Leader claim no." />
-              <Field label="Bunch file no." />
-            </div>
-          </Section>
+          {/* ---- tab bar ---- */}
+          <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1.5 shadow-card">
+            {STEPS.map((s, i) => {
+              const locked =
+                (s.id === "policy" && !policyUnlocked) ||
+                (s.id === "details" && !detailsUnlocked) ||
+                (s.id === "documents" && !documentsUnlocked);
+              const active = step === s.id;
+              const done =
+                (s.id === "identify" && policyUnlocked) ||
+                (s.id === "policy" && detailsUnlocked) ||
+                (s.id === "details" && documentsUnlocked) ||
+                (s.id === "documents" && submitted);
+              return (
+                <button
+                  key={s.id}
+                  disabled={locked}
+                  onClick={() => !locked && setStep(s.id)}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    active
+                      ? "bg-ink text-ink-foreground"
+                      : locked
+                        ? "cursor-not-allowed text-muted-foreground/50"
+                        : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span
+                    className={`grid size-5 shrink-0 place-items-center rounded-full text-[11px] ${
+                      active
+                        ? "bg-ink-foreground/20"
+                        : done
+                          ? "bg-primary/15 text-primary"
+                          : "bg-border/70"
+                    }`}
+                  >
+                    {locked ? <Lock className="size-2.5" /> : done ? <Check className="size-3" /> : i + 1}
+                  </span>
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
 
-          <Section
-            step="2"
-            title="Member & cover"
-            desc="Policy, patient and the limits that govern this claim."
-            right={
-              <button className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-semibold hover:bg-muted">
-                <Search className="size-3" /> Search previous claim
-              </button>
-            }
-          >
-            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Policy no." value="PIHGCDP00011/25" readOnly />
-              <Field label="Card holder" value="000046 — Ajmal kausar" required />
-              <Field label="Patient" value="Atifa ajmal" required />
-              <Field label="Plan" value="Plan A" readOnly />
-              <Field label="Date of birth" value="23/12/1989" readOnly />
-              <Field label="Age / gender" value="36 · Female" readOnly />
-              <Field label="Relation" value="Spouse" readOnly />
-              <Field label="Healthcare no." value="GC25-EHWM-1100-0046" readOnly />
-              <Field label="Cover / benefit" value="Caesarean Section" required />
-              <Field label="Cover type" value="Per Person" readOnly />
-              <Field label="Effective / expiry" value="01/12/2025" readOnly />
-              <Field label="Reim. tag" value="No" required />
-            </div>
+          {/* ---- step 1: identification ---- */}
+          {step === "identify" && (
+            <Section
+              step="1"
+              title="Client Details"
+              desc="Enter the claim reference, then look up the member by card number or CNIC."
+            >
+              <div className="flex flex-wrap items-end gap-6">
+                <div className="w-32">
+                  <Field label="Claim No." value={claimNo} readOnly />
+                </div>
+                <div className="w-32">
+                  <Field label="Entry No." value={entryNo} readOnly />
+                </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { l: "Panel limit", v: "80,000", u: 0 },
-                { l: "Non-panel limit", v: "80,000", u: 0 },
-                { l: "Cover sub limit", v: "80,000", u: 0 },
-                { l: "Limit utilized", v: "0", u: 100 },
-              ].map((x) => (
-                <div key={x.l} className="rounded-xl border border-border bg-surface-2 p-3">
-                  <div className="label-cap">{x.l}</div>
-                  <div className="num mt-1 text-lg font-semibold">{x.v}</div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+                <div>
+                  <div className="relative mt-1.5 inline-flex rounded-xl border border-border bg-surface-2 p-1">
                     <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${100 - x.u}%` }}
+                      className="absolute inset-y-1 w-15 rounded-lg bg-ink transition-transform duration-200 ease-out"
+                      style={{
+                        transform: idMode === "cnic" ? "translateX(100%)" : "translateX(0%)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleIdModeChange("card")}
+                      className={`relative z-10 w-15 rounded-lg py-2 text-xs font-semibold transition-colors ${
+                        idMode === "card" ? "text-ink-foreground" : "text-muted-foreground"
+                      }`}
+                    >
+                      Card No.
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleIdModeChange("cnic")}
+                      className={`relative z-10 w-15 rounded-lg py-2 text-xs font-semibold transition-colors ${
+                        idMode === "cnic" ? "text-ink-foreground" : "text-muted-foreground"
+                      }`}
+                    >
+                      CNIC
+                    </button>
+                  </div>
+                </div>
+
+                <div className="min-w-[240px] flex-1 max-w-md">
+                  <span className="label-cap flex items-center gap-1">
+                    {idMode === "card" ? "Card No." : "CNIC No."}
+                    <span className="text-destructive">*</span>
+                  </span>
+                  <div className="mt-0.5 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={cardOrCnic}
+                      placeholder={idMode === "card" ? "e.g. 000046" : "e.g. 42101-1234567-9"}
+                      onChange={(e) => {
+                        setCardOrCnic(e.target.value);
+                        setFetchState("idle");
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && handleFetch()}
+                      className="field-underline w-full text-sm font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleFetch}
+                      disabled={fetchState === "loading"}
+                      title="Fetch policy"
+                      className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground shadow-card transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {fetchState === "loading" ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="size-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <span className="mt-2 block text-[11px] text-muted-foreground">
+                We'll look up policy, employee and family details automatically.
+              </span>
+
+              {fetchState === "error" && (
+                <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive">
+                  No policy found for that {idMode === "card" ? "card number" : "CNIC"}. Please
+                  check and try again.
+                </p>
+              )}
+
+              {policy && (
+                <div className="mt-6 border-t border-border pt-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <ShieldCheck className="size-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Policy matched</h3>
+                  </div>
+                  <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+                    <Field label="Client ID" value={policy.clientId} readOnly />
+                    <Field label="Client name" value={policy.clientName} readOnly wide />
+                    <Field label="Policy no." value={policy.policyNo} readOnly />
+                    <Field label="Policy period" value={policy.policyPeriod} readOnly wide />
+                    <Field
+                      label="Employee info"
+                      value={`${policy.employeeInfo.empId} — ${policy.employeeInfo.empName} (${policy.employeeInfo.designation})`}
+                      readOnly
+                      wide
                     />
                   </div>
                 </div>
-              ))}
-            </div>
-          </Section>
+              )}
 
-          <Section
-            step="3"
-            title="Hospital & room limits"
-            desc="Provider, network status and room entitlement for this admission."
-          >
-            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Hospital" value="Al-Hamd Medical Centre (KHI)" required wide />
-              <Field label="Claim type" value="Panel" readOnly />
-              <Field label="Room entitlement" value="Standard private" />
-              <Field label="Room limit" value="10,000" />
-              <Field label="Outside network co-pay %" />
-              <Field label="Pre natal max." value="270" />
-              <Field label="Post natal max." value="30" />
-              <Field label="Deductible %" value="0" />
-              <Field label="Deductible amount" value="0" />
-              <Field label="Ex-gratia claim" value="No" />
-              <Field label="Days admitted" value="2" />
-              <Field label="Special favour" value="0" />
-            </div>
-          </Section>
-
-          <Section
-            step="4"
-            title="Payment detail"
-            desc="Line items, network rates and what the insurer actually pays."
-            right={
-              <div className="flex rounded-lg border border-border p-0.5 text-[11px] font-medium">
-                {(["payment", "recovery", "coinsurer"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTab(t)}
-                    className={`rounded-md px-2.5 py-1 capitalize transition-colors ${
-                      tab === t ? "bg-ink text-ink-foreground" : "text-muted-foreground"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            }
-          >
-            {tab === "payment" ? (
-              <>
-                <div className="overflow-x-auto rounded-xl border border-border">
-                  <table className="w-full min-w-[900px] text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-surface-2 text-left">
-                        {[
-                          "#",
-                          "Bill date",
-                          "Category",
-                          "Procedure",
-                          "Network rate",
-                          "Bill amt",
-                          "Payable",
-                          "Excess",
-                          "Withheld",
-                          "Deductible",
-                          "",
-                        ].map((h) => (
-                          <th key={h} className="label-cap whitespace-nowrap px-3 py-2.5">
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lines.map((l) => (
-                        <tr key={l.no} className="border-b border-border/70">
-                          <td className="num px-3 py-3">{l.no}</td>
-                          <td className="num whitespace-nowrap px-3 py-3">{l.date}</td>
-                          <td className="whitespace-nowrap px-3 py-3">
-                            {l.main} / {l.service}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3">{l.procedure}</td>
-                          <td className="num px-3 py-3 text-right text-muted-foreground">
-                            {money(l.rate)}
-                          </td>
-                          <td className="num px-3 py-3 text-right">{money(l.bill)}</td>
-                          <td className="num px-3 py-3 text-right font-semibold text-primary">
-                            {money(l.payable)}
-                          </td>
-                          <td className="num px-3 py-3 text-right text-muted-foreground">0</td>
-                          <td className="num px-3 py-3 text-right text-muted-foreground">0</td>
-                          <td className="num px-3 py-3 text-right text-muted-foreground">0</td>
-                          <td className="px-3 py-3 text-right">
-                            <button className="grid size-7 place-items-center rounded-lg border border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive">
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="bg-surface-2 font-semibold">
-                        <td className="px-3 py-3" colSpan={5}>
-                          Total
-                        </td>
-                        <td className="num px-3 py-3 text-right">{money(totals.bill)}</td>
-                        <td className="num px-3 py-3 text-right text-primary">
-                          {money(totals.payable)}
-                        </td>
-                        <td className="num px-3 py-3 text-right">0</td>
-                        <td className="num px-3 py-3 text-right">0</td>
-                        <td className="num px-3 py-3 text-right">0</td>
-                        <td />
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <button className="mt-3 inline-flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:border-primary/50 hover:text-primary">
-                  <Plus className="size-3.5" /> Add line item
+              <div className="mt-5 flex justify-end">
+                <button
+                  onClick={() => policy && setStep("policy")}
+                  disabled={!policy}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next: Policy &amp; member <ChevronRight className="size-4" />
                 </button>
-              </>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border py-14 text-center text-sm text-muted-foreground">
-                No {tab} entries recorded for this claim yet.
               </div>
-            )}
-          </Section>
+            </Section>
+          )}
+
+          {/* ---- step 2: policy & member ---- */}
+          {step === "policy" && policy && (
+            <Section
+              step="2"
+              title="Policy & member"
+              desc="Choose the patient this claim is for and review their cover."
+              right={
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                  <ShieldCheck className="size-3" /> Policy matched
+                </span>
+              }
+            >
+              <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+                <SelectField
+                  label="Patient"
+                  required
+                  wide
+                  value={patientId}
+                  onChange={handlePatientSelect}
+                  placeholder="Choose family member…"
+                  options={policy.dependent.map((item) => ({
+                    value: item.id,
+                    label: `${item.name} — ${item.relation}`,
+                  }))}
+                />
+              </div>
+
+              {patient && (
+                <div className="mt-6 border-t border-border pt-5">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <UserRound className="size-4 text-primary" />
+                    <span className="text-sm font-semibold">{patient.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {patient.relation} · {patient.age} · {patient.gender} · DOB {patient.dob}
+                    </span>
+                  </div>
+                  <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+                    <Field label="Healthcare no." value={patient.healthcareNo} readOnly />
+                    <Field label="Benefit" value={patient.benefit} readOnly />
+                    <Field label="Balance / limit" value={patient.balanceLimit} readOnly />
+                    <Field label="Room entitlement" value={patient.roomEntitlement} readOnly />
+                    <TagList label="Inclusion" items={policy.inclusion} />
+                    <TagList label="Exclusion" items={policy.exclusion} />
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 flex items-center justify-between">
+                <button
+                  onClick={() => setStep("identify")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
+                >
+                  <ChevronLeft className="size-4" /> Back
+                </button>
+                <button
+                  onClick={goToDetails}
+                  disabled={!patient}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next: Claim details <ChevronRight className="size-4" />
+                </button>
+              </div>
+            </Section>
+          )}
+
+          {/* ---- step 3: claim details ---- */}
+          {step === "details" && policy && patient && (
+            <Section
+              step="3"
+              title="Claim details"
+              desc="Diagnosis, treatment, amounts and the decision on this claim."
+            >
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-xl border border-border bg-surface-2 p-3">
+                  <div className="label-cap">Benefit</div>
+                  <div className="mt-1 text-sm font-semibold">{patient.benefit}</div>
+                </div>
+                <div className="rounded-xl border border-border bg-surface-2 p-3">
+                  <div className="label-cap">Balance / limit</div>
+                  <div className="num mt-1 text-sm font-semibold">{patient.balanceLimit}</div>
+                </div>
+                <div className="rounded-xl border border-border bg-surface-2 p-3">
+                  <div className="label-cap">Room entitlement limit</div>
+                  <div className="mt-1 text-sm font-semibold">{patient.roomEntitlement}</div>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+                <Field
+                  label="Cause of loss"
+                  value={causeOfLoss}
+                  required
+                  onChange={setCauseOfLoss}
+                  placeholder="e.g. Maternity C-Section"
+                />
+                <Field
+                  label="Diagnosis"
+                  value={diagnosis}
+                  required
+                  onChange={setDiagnosis}
+                  placeholder="e.g. LSCS"
+                  hint="ICD code where applicable"
+                />
+                <Field
+                  label="Treatment"
+                  value={treatment}
+                  required
+                  onChange={setTreatment}
+                  placeholder="e.g. Surgical delivery"
+                />
+                <Field
+                  label="Stay (days)"
+                  value={stay}
+                  required
+                  type="number"
+                  onChange={setStay}
+                  placeholder="e.g. 2"
+                />
+                <Field
+                  label="Benefits claimed"
+                  value={benefits}
+                  onChange={setBenefits}
+                  placeholder="e.g. Room & board, surgeon fee"
+                  wide
+                />
+                <Field
+                  label="Requested amount"
+                  value={reqAmount}
+                  type="number"
+                  onChange={setReqAmount}
+                  placeholder="0"
+                />
+                <Field
+                  label="Approved amount"
+                  value={approveAmount}
+                  type="number"
+                  onChange={setApproveAmount}
+                  placeholder="0"
+                />
+                <SelectField
+                  label="Hospital"
+                  required
+                  value={hospital}
+                  onChange={setHospital}
+                  options={hospitalList.map((h) => ({ value: h, label: h }))}
+                />
+                <SelectField
+                  label="Status"
+                  required
+                  value={status}
+                  onChange={setStatus}
+                  options={claimStatusOptions.map((s) => ({ value: s, label: s }))}
+                />
+              </div>
+
+              <div className="mt-5 flex items-center justify-between">
+                <button
+                  onClick={() => setStep("policy")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
+                >
+                  <ChevronLeft className="size-4" /> Back
+                </button>
+                <button
+                  onClick={goToDocuments}
+                  disabled={!coreFieldsComplete}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next: Documents &amp; remarks <ChevronRight className="size-4" />
+                </button>
+              </div>
+            </Section>
+          )}
+
+          {/* ---- step 4: documents & remarks ---- */}
+          {step === "documents" && policy && patient && (
+            <Section
+              step="4"
+              title="Documents & remarks"
+              desc="Attach whatever's on file, flag anything still needed, then save."
+            >
+              {/* ---- supporting documents ---- */}
+              <div>
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold">Supporting documents</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Shared with the Documents panel above — a file attached here or there shows
+                    up in both places.
+                  </p>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleFilesSelected(e.dataTransfer.files);
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-2 px-4 py-6 text-center text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                >
+                  <UploadCloud className="size-5" />
+                  <span className="text-xs font-medium">
+                    Click to upload documents, or drag files here
+                  </span>
+                </div>
+
+                {sharedFiles.length > 0 && (
+                  <ul className="mt-3 space-y-1.5">
+                    {sharedFiles.map((f, i) => (
+                      <li
+                        key={`${f.name}-${f.size}-${i}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-xs"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate font-medium">{f.name}</span>
+                          <span className="num shrink-0 text-muted-foreground">
+                            {formatBytes(f.size)}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(f)}
+                          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* ---- remarks & requirement ---- */}
+              <div className="mt-6 border-t border-border pt-5">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold">Remarks & requirement</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Tick anything still needed from the claimant, e.g. approve the case but ask
+                    for an additional lab report.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+                  {requiredDocumentOptions.map((doc) => (
+                    <label
+                      key={doc}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                        requestedDocs.includes(doc)
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-border bg-surface hover:bg-muted"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={requestedDocs.includes(doc)}
+                        onChange={() => toggleRequestedDoc(doc)}
+                        className="size-3.5 accent-primary"
+                      />
+                      {doc}
+                    </label>
+                  ))}
+                </div>
+
+                <Field
+                  label="Other document / requirement"
+                  value={otherDocNote}
+                  onChange={setOtherDocNote}
+                  placeholder="e.g. Attending physician's report"
+                  wide
+                />
+
+                <div className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2">
+                  <label className="block sm:col-span-2">
+                    <span className="label-cap flex items-center gap-1">
+                      Remarks
+                      {remarksRequired && <span className="text-destructive">*</span>}
+                    </span>
+                    <textarea
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      rows={3}
+                      placeholder={
+                        status === "Approve"
+                          ? "Optional — add any notes on this approval"
+                          : "Explain what's missing or why the case was rejected"
+                      }
+                      className="field-underline mt-0.5 w-full resize-none text-sm font-medium"
+                    />
+                    <span className="mt-1 block text-[11px] text-muted-foreground">
+                      {status === "Approve"
+                        ? "Not required when the case is approved."
+                        : "Required when the status is Reject or Requirement Needed."}
+                    </span>
+                    {attemptedSubmit && remarksRequired && !remarksValid && (
+                      <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
+                        <AlertTriangle className="size-3" /> Please add remarks before submitting.
+                      </span>
+                    )}
+                  </label>
+
+                  {reviewerNameRequired && (
+                    <Field
+                      label="Reviewer name"
+                      value={reviewerName}
+                      required
+                      onChange={setReviewerName}
+                      placeholder="Name of the person rejecting this claim"
+                      hint="Required when the status is Reject."
+                    />
+                  )}
+                </div>
+                {attemptedSubmit && reviewerNameRequired && !reviewerNameValid && (
+                  <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
+                    <AlertTriangle className="size-3" /> Please enter your name to reject this
+                    claim.
+                  </span>
+                )}
+              </div>
+
+              {submitted && (
+                <p className="mt-5 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
+                  <Check className="size-3.5" /> Claim saved for {patient.name} — status:{" "}
+                  {status || "—"}
+                  {reviewerName ? ` — reviewed by ${reviewerName}` : ""}
+                </p>
+              )}
+
+              <div className="mt-5 flex items-center justify-between">
+                <button
+                  onClick={() => setStep("details")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
+                >
+                  <ChevronLeft className="size-4" /> Back
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!coreFieldsComplete}
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Save className="size-4" /> Save &amp; submit
+                </button>
+              </div>
+            </Section>
+          )}
         </div>
 
         <aside
           className={
-            docMode === "split" ? "xl:sticky xl:top-20 xl:h-[calc(100vh-6rem)]" : "contents"
+            docMode === "split" || benefitMode === "split"
+              ? "xl:sticky xl:top-20 xl:h-[calc(100vh-6rem)]"
+              : "contents"
           }
         >
-          <DocumentsPanel mode={docMode} onModeChange={setDocMode} />
+          <DocumentsPanel
+            mode={docMode}
+            onModeChange={(mode) => {
+              setDocMode(mode);
+              if (mode === "split") setBenefitMode("closed");
+            }}
+          />
+          <BenefitsPanel
+            mode={benefitMode}
+            onModeChange={(mode) => {
+              setBenefitMode(mode);
+              if (mode === "split") setDocMode("closed");
+            }}
+            causeOfLoss={causeOfLoss || patient?.benefit}
+          />
         </aside>
       </div>
-
-
     </AppShell>
   );
 }

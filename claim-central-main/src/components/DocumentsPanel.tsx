@@ -1,14 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
-  Minus,
-  PictureInPicture2,
-  Columns2,
   UploadCloud,
   FileText,
   Trash2,
   Paperclip,
-  GripVertical,
   Plus,
   ZoomIn,
   ZoomOut,
@@ -16,15 +12,9 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-export type DocMode = "split" | "float" | "minimized" | "closed";
+export type DocMode = "split" | "closed";
 
 type Doc = { id: string; name: string; size: number; type: string; url: string };
-type Pos = { x: number; y: number };
-
-const PANEL_W = 430;
-const PANEL_H = 520;
-const MIN_W = 280;
-const MIN_H = 320;
 
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 4;
@@ -41,85 +31,11 @@ const TABS = [
 ] as const;
 
 type TabName = (typeof TABS)[number];
-type ResizeDir = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
-
-const HANDLES: { dir: ResizeDir; className: string }[] = [
-  { dir: "n", className: "left-3 right-3 top-0 h-1.5 cursor-ns-resize" },
-  { dir: "s", className: "left-3 right-3 bottom-0 h-1.5 cursor-ns-resize" },
-  { dir: "w", className: "top-3 bottom-3 left-0 w-1.5 cursor-ew-resize" },
-  { dir: "e", className: "top-3 bottom-3 right-0 w-1.5 cursor-ew-resize" },
-  { dir: "nw", className: "left-0 top-0 size-3 cursor-nwse-resize" },
-  { dir: "ne", className: "right-0 top-0 size-3 cursor-nesw-resize" },
-  { dir: "sw", className: "left-0 bottom-0 size-3 cursor-nesw-resize" },
-  { dir: "se", className: "right-0 bottom-0 size-3 cursor-nwse-resize" },
-];
 
 function formatSize(b: number) {
   if (b < 1024) return `${b} B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`;
   return `${(b / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function clampToViewport(p: Pos, w: number, h: number): Pos {
-  if (typeof window === "undefined") return p;
-  return {
-    x: Math.min(Math.max(p.x, 8), Math.max(8, window.innerWidth - w - 8)),
-    y: Math.min(Math.max(p.y, 8), Math.max(8, window.innerHeight - h - 8)),
-  };
-}
-
-/** Pointer-based dragging for a fixed-position element. */
-function useDraggable(size: { w: number; h: number }, enabled: boolean) {
-  const [pos, setPos] = useState<Pos | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const offset = useRef<Pos>({ x: 0, y: 0 });
-
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      if (!enabled) return;
-      if ((e.target as HTMLElement).closest("button,input,a,[data-no-drag]")) return;
-
-      const rect = (e.currentTarget as HTMLElement)
-        .closest("[data-draggable-root]")!
-        .getBoundingClientRect();
-
-      offset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      setPos(clampToViewport({ x: rect.left, y: rect.top }, size.w, size.h));
-      setDragging(true);
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      e.preventDefault();
-    },
-    [enabled, size.w, size.h],
-  );
-
-  useEffect(() => {
-    if (!dragging) return;
-    const move = (e: PointerEvent) =>
-      setPos(
-        clampToViewport(
-          { x: e.clientX - offset.current.x, y: e.clientY - offset.current.y },
-          size.w,
-          size.h,
-        ),
-      );
-    const up = () => setDragging(false);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-    };
-  }, [dragging, size.w, size.h]);
-
-  useEffect(() => {
-    const onResize = () => setPos((p) => (p ? clampToViewport(p, size.w, size.h) : p));
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [size.w, size.h]);
-
-  return { pos, setPos, dragging, onPointerDown, reset: () => setPos(null) };
 }
 
 function Viewer({ doc, zoom }: { doc: Doc | null; zoom: number }) {
@@ -201,17 +117,13 @@ export function DocumentsPanel({
   const [zoom, setZoom] = useState(1);
   const [listOpen, setListOpen] = useState(false);
 
-  const [size, setSize] = useState<{ w: number; h: number }>({ w: PANEL_W, h: PANEL_H });
-  const [resizing, setResizing] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const active = docs.find((d) => d.id === activeId) ?? null;
-
-  const panel = useDraggable(size, mode === "float");
-  const pill = useDraggable({ w: 190, h: 44 }, mode === "minimized");
 
   // Reset zoom when the previewed document changes.
   useEffect(() => setZoom(1), [activeId]);
@@ -257,69 +169,6 @@ export function DocumentsPanel({
     [],
   );
 
-  function startResize(dir: ResizeDir) {
-    return (e: React.PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const rootEl = (e.currentTarget as HTMLElement).closest(
-        "[data-draggable-root]",
-      ) as HTMLElement | null;
-      if (!rootEl) return;
-
-      const rect = rootEl.getBoundingClientRect();
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const start = { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
-
-      setResizing(true);
-
-      const move = (ev: PointerEvent) => {
-        const dx = ev.clientX - startX;
-        const dy = ev.clientY - startY;
-        let { x, y, w, h } = start;
-
-        if (dir.includes("e")) w = start.w + dx;
-        if (dir.includes("s")) h = start.h + dy;
-        if (dir.includes("w")) {
-          w = start.w - dx;
-          x = start.x + dx;
-        }
-        if (dir.includes("n")) {
-          h = start.h - dy;
-          y = start.y + dy;
-        }
-        if (w < MIN_W) {
-          if (dir.includes("w")) x = start.x + (start.w - MIN_W);
-          w = MIN_W;
-        }
-        if (h < MIN_H) {
-          if (dir.includes("n")) y = start.y + (start.h - MIN_H);
-          h = MIN_H;
-        }
-
-        w = Math.min(w, window.innerWidth - 16);
-        h = Math.min(h, window.innerHeight - 16);
-        x = Math.max(0, Math.min(x, window.innerWidth - w));
-        y = Math.max(0, Math.min(y, window.innerHeight - h));
-
-        setSize({ w, h });
-        panel.setPos({ x, y });
-      };
-
-      const up = () => {
-        setResizing(false);
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", up);
-      };
-
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-      window.addEventListener("pointercancel", up);
-    };
-  }
-
   function addFiles(files: FileList | null) {
     if (!files?.length) return;
 
@@ -334,49 +183,6 @@ export function DocumentsPanel({
     setDocsByTab((m) => ({ ...m, [tab]: [...m[tab], ...next] }));
     setActiveId((a) => a ?? next[0]!.id);
   }
-
-  const chrome = (
-    <div
-      onPointerDown={mode === "float" ? panel.onPointerDown : undefined}
-      onDoubleClick={mode === "float" ? panel.reset : undefined}
-      className={`flex items-center gap-2 border-b border-border bg-muted px-3 py-2 select-none ${
-        mode === "float" ? (panel.dragging ? "cursor-grabbing" : "cursor-grab") : ""
-      }`}
-    >
-      {mode === "float" && <GripVertical className="size-4 text-muted-foreground" />}
-      <Paperclip className="size-4 text-primary" />
-      <span className="text-sm font-semibold">Documents</span>
-      <span className="text-[11px] text-muted-foreground">{totalDocs} file(s)</span>
-
-      <div className="ml-auto flex items-center gap-1" data-no-drag>
-        <button
-          title={mode === "split" ? "Floating view" : "Split view"}
-          onClick={() => onModeChange(mode === "split" ? "float" : "split")}
-          className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          {mode === "split" ? (
-            <PictureInPicture2 className="size-4" />
-          ) : (
-            <Columns2 className="size-4" />
-          )}
-        </button>
-        <button
-          title="Minimize"
-          onClick={() => onModeChange("minimized")}
-          className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <Minus className="size-4" />
-        </button>
-        <button
-          title="Close"
-          onClick={() => onModeChange("closed")}
-          className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <X className="size-4" />
-        </button>
-      </div>
-    </div>
-  );
 
   const body = (
     <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_1fr] overflow-hidden">
@@ -557,81 +363,77 @@ export function DocumentsPanel({
     </div>
   );
 
-  // A single mounted tree for every mode: switching split/float/minimized must
-  // never remount the panel, otherwise uploaded documents disappear.
-  const isFloat = mode === "float";
-  const hidden = mode === "minimized" || mode === "closed";
+  if (mode === "closed") return null;
 
-  return (
-    <>
-      <div
-        data-draggable-root
-        aria-hidden={hidden}
-        style={
-          hidden
-            ? { display: "none" }
-            : isFloat
-              ? {
-                  position: "fixed",
-                  ...(panel.pos ? { left: panel.pos.x, top: panel.pos.y } : { right: 20, bottom: 20 }),
-                  width: size.w,
-                  height: size.h,
-                  zIndex: 40,
-                }
-              : undefined
-        }
-        className={`relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card ${
-          isFloat ? "max-w-[96vw] shadow-xl" : "h-full shadow-md"
-        } ${panel.dragging || resizing ? "select-none" : ""}`}
-      >
-        {chrome}
-        {body}
+  // Split view: side panel. Fullscreen: modal popup at 80% of viewport.
+  if (!fullscreen) {
+    return (
+      <div className="sticky top-25 z-10 relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg h-full max-h-[calc(100vh-180px)]">
+        <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-2 select-none">
+          <Paperclip className="size-4 text-primary" />
+          <span className="text-sm font-semibold">Documents</span>
+          <span className="text-[11px] text-muted-foreground">{totalDocs} file(s)</span>
 
-        {isFloat && (
-          <>
-            {HANDLES.map((h) => (
-              <div
-                key={h.dir}
-                onPointerDown={startResize(h.dir)}
-                title="Resize"
-                className={`absolute z-20 ${h.className}`}
-              />
-            ))}
-            <span className="pointer-events-none absolute bottom-1 right-1 z-20 block size-2 border-b-2 border-r-2 border-muted-foreground/60" />
-          </>
-        )}
-      </div>
-
-      {mode === "minimized" && (
-        <div
-          data-draggable-root
-          style={
-            pill.pos
-              ? { left: pill.pos.x, top: pill.pos.y, right: "auto", bottom: "auto" }
-              : undefined
-          }
-          className="fixed bottom-5 right-5 z-40 select-none"
-        >
-          <div
-            onPointerDown={pill.onPointerDown}
-            className={`inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg ${
-              pill.dragging ? "cursor-grabbing" : "cursor-grab"
-            }`}
-          >
-            <GripVertical className="size-4 opacity-70" />
+          <div className="ml-auto flex items-center gap-1">
             <button
-              onClick={() => onModeChange("split")}
-              className="inline-flex cursor-pointer items-center gap-2"
+              title="Full screen"
+              onClick={() => setFullscreen(true)}
+              className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <Paperclip className="size-4" />
-              Documents
-              <span className="rounded-full bg-primary-foreground/15 px-2 py-0.5 text-[11px]">
-                {totalDocs}
-              </span>
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M8 3H3v5M21 8V3h-5M16 21h5v-5M3 16v5h5" />
+              </svg>
+            </button>
+            <button
+              title="Close"
+              onClick={() => onModeChange("closed")}
+              className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X className="size-4" />
             </button>
           </div>
         </div>
-      )}
-    </>
+        <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">{body}</div>
+      </div>
+    );
+  }
+
+  // Fullscreen mode: fixed modal popup at 60% of viewport
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-6 backdrop-blur-sm">
+      <div
+        className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        style={{
+          width: "min(80vw, 1000px)",
+          height: "min(80vh, 720px)",
+        }}
+      >
+        <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-2 select-none">
+          <Paperclip className="size-4 text-primary" />
+          <span className="text-sm font-semibold">Documents</span>
+          <span className="text-[11px] text-muted-foreground">{totalDocs} file(s)</span>
+
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              title="Exit full screen"
+              onClick={() => setFullscreen(false)}
+              className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M8 3H3v5M21 8V3h-5M16 21h5v-5M3 16v5h5" />
+              </svg>
+            </button>
+            <button
+              title="Close"
+              onClick={() => onModeChange("closed")}
+              className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">{body}</div>
+      </div>
+    </div>
   );
 }

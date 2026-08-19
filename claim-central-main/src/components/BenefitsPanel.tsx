@@ -16,8 +16,16 @@ type BenefitMetric = {
 const policyBenefitMetrics: BenefitMetric[] = [
   { label: "Policy no.", value: "PIHGCDP00011/25", tone: "muted" },
   { label: "Plan", value: "Plan A", meta: "Active and eligible" },
-  { label: "Policy coverage", value: "Hospitalization + maternity", meta: "Main policy benefit" },
-  { label: "Overall panel limit", value: "80,000", meta: "AED / package limit" },
+  {
+    label: "Policy coverage",
+    value: "Hospitalization + maternity",
+    meta: "Main policy benefit",
+  },
+  {
+    label: "Overall panel limit",
+    value: "80,000",
+    meta: "AED / package limit",
+  },
   { label: "Non-panel limit", value: "80,000", meta: "Maximum eligible" },
   { label: "Cover sub limit", value: "80,000", meta: "No exclusion" },
   { label: "Overall limit used", value: "0", meta: "0% used" },
@@ -31,21 +39,48 @@ const policyCoverageSummary = [
   { label: "Deductible", value: "0", percent: 0 },
 ];
 
-const causeSpecificMetrics = (causeOfLoss: string, benefit: string, memberName: string): BenefitMetric[] => [
+const causeSpecificMetrics = (
+  causeOfLoss: string,
+  benefit: string,
+  memberName: string,
+): BenefitMetric[] => [
   { label: "Cover / benefit", value: causeOfLoss, tone: "primary" },
-  { label: "Selected benefit", value: benefit || "Select a benefit", tone: "primary" },
+  {
+    label: "Selected benefit",
+    value: benefit || "Select a benefit",
+    tone: "primary",
+  },
   { label: "Member", value: memberName || "Select a member" },
-  { label: "Room entitlement", value: "Standard private", meta: "Within network" },
-  { label: "Covered period", value: "Pre/post natal", meta: "As per condition" },
-  { label: "Entry benefit", value: "Full eligibility", meta: "Approved under policy" },
+  {
+    label: "Room entitlement",
+    value: "Standard private",
+    meta: "Within network",
+  },
+  {
+    label: "Covered period",
+    value: "Pre/post natal",
+    meta: "As per condition",
+  },
+  {
+    label: "Entry benefit",
+    value: "Full eligibility",
+    meta: "Approved under policy",
+  },
   { label: "Cause limit", value: "80,000", meta: "AED / cause-specific cap" },
   { label: "Co-pay", value: "0%", meta: "No co-pay applied" },
   { label: "Deductible", value: "0", meta: "No deductible due" },
   { label: "Status", value: "Active", meta: "Benefit available" },
 ];
 
-const memberMetrics = (member: dependent | undefined, underwritingTerms: string[]): BenefitMetric[] => [
-  { label: "Member", value: member?.name || "Select a member", tone: "primary" },
+const memberMetrics = (
+  member: dependent | undefined,
+  underwritingTerms: string[],
+): BenefitMetric[] => [
+  {
+    label: "Member",
+    value: member?.name || "Select a member",
+    tone: "primary",
+  },
   { label: "Healthcare no.", value: member?.healthcareNo || "-" },
   { label: "Balance / limit", value: member?.balanceLimit || "-" },
   { label: "Room entitlement", value: member?.roomEntitlement || "-" },
@@ -53,14 +88,30 @@ const memberMetrics = (member: dependent | undefined, underwritingTerms: string[
 ];
 
 const otherBenefitsMetrics: BenefitMetric[] = [
-  { label: "Out-patient", value: "Covered", meta: "Subject to policy aggregate" },
+  {
+    label: "Out-patient",
+    value: "Covered",
+    meta: "Subject to policy aggregate",
+  },
   { label: "Day care", value: "Covered", meta: "Network providers only" },
   { label: "Emergency", value: "Covered", meta: "24/7 emergency access" },
   { label: "Diagnostic", value: "Included", meta: "As per policy schedule" },
-  { label: "Ancillary services", value: "Included", meta: "Within benefit limit" },
-  { label: "Cashless eligibility", value: "Yes", meta: "Available where network applies" },
+  {
+    label: "Ancillary services",
+    value: "Included",
+    meta: "Within benefit limit",
+  },
+  {
+    label: "Cashless eligibility",
+    value: "Yes",
+    meta: "Available where network applies",
+  },
   { label: "Annual benefit reset", value: "31 Dec", meta: "Policy cycle" },
-  { label: "Special approval", value: "Required", meta: "Where claim exceeds limit" },
+  {
+    label: "Special approval",
+    value: "Required",
+    meta: "Where claim exceeds limit",
+  },
 ];
 
 export function BenefitsPanel({
@@ -116,7 +167,8 @@ export function BenefitsPanel({
     },
     other: {
       title: "Other covered benefits",
-      subtitle: "Applicable to all other cause-of-loss cases covered under this policy",
+      subtitle:
+        "Applicable to all other cause-of-loss cases covered under this policy",
       metrics: otherBenefitsMetrics,
       coverage: [
         { label: "Available benefits", value: "8", percent: 75 },
@@ -147,7 +199,13 @@ export function BenefitsPanel({
               onClick={() => setFullscreen(true)}
               className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg
+                viewBox="0 0 24 24"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
                 <path d="M8 3H3v5M21 8V3h-5M16 21h5v-5M3 16v5h5" />
               </svg>
             </button>
@@ -184,9 +242,12 @@ export function BenefitsPanel({
           <div className="space-y-4">
             {!hasSelections ? (
               <div className="rounded-xl border border-border bg-surface-2 p-5 text-center">
-                <div className="text-sm font-semibold text-foreground">Benefits panel ready</div>
+                <div className="text-sm font-semibold text-foreground">
+                  Benefits panel ready
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Select a member, cause of loss, and benefit to fetch coverage information.
+                  Select a member, cause of loss, and benefit to fetch coverage
+                  information.
                 </div>
               </div>
             ) : (
@@ -195,24 +256,38 @@ export function BenefitsPanel({
                   <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
                     Fetched benefit info
                   </div>
-                  <div className="mt-2 text-base font-semibold text-foreground">{activeSummary.title}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">{activeSummary.subtitle}</div>
+                  <div className="mt-2 text-base font-semibold text-foreground">
+                    {activeSummary.title}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {activeSummary.subtitle}
+                  </div>
                 </div>
 
                 {activeTab === "cause" && (
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                    {memberMetrics(selectedMember, underwritingTerms).map((item) => (
-                      <div key={item.label} className="rounded-xl border border-border bg-surface-2 p-3">
-                        <div className="label-cap">{item.label}</div>
-                        <div className="mt-1 text-sm font-semibold text-foreground">{item.value}</div>
-                      </div>
-                    ))}
+                    {memberMetrics(selectedMember, underwritingTerms).map(
+                      (item) => (
+                        <div
+                          key={item.label}
+                          className="rounded-xl border border-border bg-surface-2 p-3"
+                        >
+                          <div className="label-cap">{item.label}</div>
+                          <div className="mt-1 text-sm font-semibold text-foreground">
+                            {item.value}
+                          </div>
+                        </div>
+                      ),
+                    )}
                   </div>
                 )}
 
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                   {activeSummary.metrics.map((item) => (
-                    <div key={item.label} className="rounded-xl border border-border bg-surface-2 p-3">
+                    <div
+                      key={item.label}
+                      className="rounded-xl border border-border bg-surface-2 p-3"
+                    >
                       <div className="label-cap">{item.label}</div>
                       <div
                         className={`mt-1 text-sm font-semibold ${
@@ -225,15 +300,23 @@ export function BenefitsPanel({
                       >
                         {item.value}
                       </div>
-                      {item.meta && <div className="mt-1 text-[11px] text-muted-foreground">{item.meta}</div>}
+                      {item.meta && (
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {item.meta}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
 
                 <div className="rounded-xl border border-border bg-surface-2 p-3">
                   <div className="mb-3 flex items-center justify-between">
-                    <div className="text-sm font-semibold">Coverage summary</div>
-                    <span className="text-[11px] text-muted-foreground">Active</span>
+                    <div className="text-sm font-semibold">
+                      Coverage summary
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      Active
+                    </span>
                   </div>
 
                   <div className="space-y-3">
@@ -241,7 +324,9 @@ export function BenefitsPanel({
                       <div key={item.label}>
                         <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
                           <span>{item.label}</span>
-                          <span className="font-medium text-foreground">{item.value}</span>
+                          <span className="font-medium text-foreground">
+                            {item.value}
+                          </span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-border">
                           <div
@@ -264,10 +349,13 @@ export function BenefitsPanel({
   // Fullscreen mode: fixed modal popup at 80% of viewport
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-6 backdrop-blur-sm">
-      <aside className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" style={{
-        width: "min(80vw, 880px)",
-        height: "min(80vh, 720px)",
-      }}>
+      <aside
+        className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        style={{
+          width: "min(80vw, 880px)",
+          height: "min(80vh, 720px)",
+        }}
+      >
         <div className="flex items-center justify-between border-b border-border bg-muted px-3 py-2.5">
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-4 text-primary" />
@@ -280,7 +368,13 @@ export function BenefitsPanel({
               onClick={() => setFullscreen(false)}
               className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg
+                viewBox="0 0 24 24"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
                 <path d="M8 3H3v5M21 8V3h-5M16 21h5v-5M3 16v5h5" />
               </svg>
             </button>
@@ -317,64 +411,84 @@ export function BenefitsPanel({
           <div className="space-y-4">
             {!hasSelections ? (
               <div className="rounded-xl border border-border bg-surface-2 p-5 text-center">
-                <div className="text-sm font-semibold text-foreground">Benefits panel ready</div>
+                <div className="text-sm font-semibold text-foreground">
+                  Benefits panel ready
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Select a member, cause of loss, and benefit to fetch coverage information.
+                  Select a member, cause of loss, and benefit to fetch coverage
+                  information.
                 </div>
               </div>
             ) : (
               <>
-              <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-                Fetched benefit info
-              </div>
-              <div className="mt-2 text-base font-semibold text-foreground">{activeSummary.title}</div>
-              <div className="mt-1 text-xs text-muted-foreground">{activeSummary.subtitle}</div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              {activeSummary.metrics.map((item) => (
-                <div key={item.label} className="rounded-xl border border-border bg-surface-2 p-3">
-                  <div className="label-cap">{item.label}</div>
-                  <div
-                    className={`mt-1 text-sm font-semibold ${
-                      item.tone === "primary"
-                        ? "text-primary"
-                        : item.tone === "success"
-                          ? "text-emerald-600"
-                          : "text-foreground"
-                    }`}
-                  >
-                    {item.value}
+                <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                    Fetched benefit info
                   </div>
-                  {item.meta && <div className="mt-1 text-[11px] text-muted-foreground">{item.meta}</div>}
+                  <div className="mt-2 text-base font-semibold text-foreground">
+                    {activeSummary.title}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {activeSummary.subtitle}
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            <div className="rounded-xl border border-border bg-surface-2 p-3">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-semibold">Coverage summary</div>
-                <span className="text-[11px] text-muted-foreground">Active</span>
-              </div>
-
-              <div className="space-y-3">
-                {activeSummary.coverage.map((item) => (
-                  <div key={item.label}>
-                    <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>{item.label}</span>
-                      <span className="font-medium text-foreground">{item.value}</span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-border">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  {activeSummary.metrics.map((item) => (
+                    <div
+                      key={item.label}
+                      className="rounded-xl border border-border bg-surface-2 p-3"
+                    >
+                      <div className="label-cap">{item.label}</div>
                       <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${item.percent}%` }}
-                      />
+                        className={`mt-1 text-sm font-semibold ${
+                          item.tone === "primary"
+                            ? "text-primary"
+                            : item.tone === "success"
+                              ? "text-emerald-600"
+                              : "text-foreground"
+                        }`}
+                      >
+                        {item.value}
+                      </div>
+                      {item.meta && (
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {item.meta}
+                        </div>
+                      )}
                     </div>
+                  ))}
+                </div>
+
+                <div className="rounded-xl border border-border bg-surface-2 p-3">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="text-sm font-semibold">
+                      Coverage summary
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      Active
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
+
+                  <div className="space-y-3">
+                    {activeSummary.coverage.map((item) => (
+                      <div key={item.label}>
+                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>{item.label}</span>
+                          <span className="font-medium text-foreground">
+                            {item.value}
+                          </span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-border">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${item.percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
           </div>

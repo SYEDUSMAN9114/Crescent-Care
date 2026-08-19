@@ -48,7 +48,8 @@ function DashboardPage() {
       intimations: claims.length,
       payable: claims.reduce((sum, claim) => sum + claim.lossPayable, 0),
       deductibles: claims.reduce((sum, claim) => sum + claim.lossDeductable, 0),
-      awaitingSettlement: claims.filter((claim) => claim.status !== "Posted").length,
+      awaitingSettlement: claims.filter((claim) => claim.status !== "Posted")
+        .length,
       settled: claims.filter((claim) => claim.status === "Full & Final").length,
       posted: claims.filter((claim) => claim.status === "Posted").length,
     }),
@@ -89,12 +90,22 @@ function DashboardPage() {
   ];
 
   const resolutionData = [
-    { name: "Full & Final", value: totals.settled, color: "var(--color-primary)" },
+    {
+      name: "Full & Final",
+      value: totals.settled,
+      color: "var(--color-primary)",
+    },
     { name: "Posted", value: totals.posted, color: "var(--color-warning)" },
-    { name: "In progress", value: totals.awaitingSettlement, color: "var(--color-info)" },
+    {
+      name: "In progress",
+      value: totals.awaitingSettlement,
+      color: "var(--color-info)",
+    },
   ];
 
-  const recentClaims = [...claims].sort((a, b) => parseClaimDate(b) - parseClaimDate(a));
+  const recentClaims = [...claims].sort(
+    (a, b) => parseClaimDate(b) - parseClaimDate(a),
+  );
 
   return (
     <AppShell
@@ -128,8 +139,12 @@ function DashboardPage() {
               <div className="relative flex items-start justify-between gap-4">
                 <div>
                   <div className="label-cap">{metric.label}</div>
-                  <div className="num mt-2 text-2xl font-semibold">{metric.value}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">{metric.hint}</div>
+                  <div className="num mt-2 text-2xl font-semibold">
+                    {metric.value}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {metric.hint}
+                  </div>
                 </div>
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                   <metric.icon className="size-5" strokeWidth={1.75} />
@@ -148,23 +163,40 @@ function DashboardPage() {
             <div className="h-44">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={resolutionData} dataKey="value" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={3}>
+                  <Pie
+                    data={resolutionData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={42}
+                    outerRadius={68}
+                    paddingAngle={3}
+                  >
                     {resolutionData.map((item) => (
                       <Cell key={item.name} fill={item.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value, name) => [`${value} claims`, name]} />
+                  <Tooltip
+                    formatter={(value, name) => [`${value} claims`, name]}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               {resolutionData.map((item) => (
-                <div key={item.name} className="rounded-xl border border-border bg-surface-2 p-2.5">
+                <div
+                  key={item.name}
+                  className="rounded-xl border border-border bg-surface-2 p-2.5"
+                >
                   <div className="flex items-center gap-2 text-xs font-medium">
-                    <span className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
                     {item.name}
                   </div>
-                  <div className="num mt-1 text-base font-semibold">{item.value}</div>
+                  <div className="num mt-1 text-base font-semibold">
+                    {item.value}
+                  </div>
                 </div>
               ))}
             </div>
@@ -172,20 +204,48 @@ function DashboardPage() {
 
           <section className="rounded-2xl border border-border bg-surface p-4 shadow-card">
             <div className="mb-2">
-              <h2 className="text-base font-semibold">User performance matrix</h2>
+              <h2 className="text-base font-semibold">
+                User performance matrix
+              </h2>
               <p className="text-xs text-muted-foreground">
-                Resolution output compared with daily, weekly and monthly targets.
+                Resolution output compared with daily, weekly and monthly
+                targets.
               </p>
             </div>
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={performance} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
-                  <XAxis dataKey="period" tickLine={false} axisLine={false} fontSize={12} />
+                <BarChart
+                  data={performance}
+                  margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="var(--color-border)"
+                  />
+                  <XAxis
+                    dataKey="period"
+                    tickLine={false}
+                    axisLine={false}
+                    fontSize={12}
+                  />
                   <YAxis tickLine={false} axisLine={false} fontSize={12} />
-                  <Tooltip formatter={(value, name) => [`${value} claims`, name === "resolved" ? "Resolved" : "Target"]} />
-                  <Bar dataKey="target" fill="var(--color-muted)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="resolved" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
+                  <Tooltip
+                    formatter={(value, name) => [
+                      `${value} claims`,
+                      name === "resolved" ? "Resolved" : "Target",
+                    ]}
+                  />
+                  <Bar
+                    dataKey="target"
+                    fill="var(--color-muted)"
+                    radius={[6, 6, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="resolved"
+                    fill="var(--color-primary)"
+                    radius={[6, 6, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -195,14 +255,27 @@ function DashboardPage() {
         <section className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
           <div className="border-b border-border p-5">
             <h2 className="text-base font-semibold">Recent claims</h2>
-            <p className="text-xs text-muted-foreground">All recent intimations sorted by intimation date.</p>
+            <p className="text-xs text-muted-foreground">
+              All recent intimations sorted by intimation date.
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[920px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-2 text-left">
-                  {["Intimation", "Claimant", "Cause of loss", "Date", "Status", "Payable", "Deductible"].map((h) => (
-                    <th key={h} className="label-cap whitespace-nowrap px-4 py-3 font-medium">
+                  {[
+                    "Intimation",
+                    "Claimant",
+                    "Cause of loss",
+                    "Date",
+                    "Status",
+                    "Payable",
+                    "Deductible",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="label-cap whitespace-nowrap px-4 py-3 font-medium"
+                    >
                       {h}
                     </th>
                   ))}
@@ -210,29 +283,48 @@ function DashboardPage() {
               </thead>
               <tbody>
                 {recentClaims.map((claim) => (
-                  <tr key={`${claim.intimationNo}-${claim.entryNo}`} className="border-b border-border/70 last:border-0">
+                  <tr
+                    key={`${claim.intimationNo}-${claim.entryNo}`}
+                    className="border-b border-border/70 last:border-0"
+                  >
                     <td className="px-4 py-3">
-                      <div className="num font-semibold">{claim.intimationNo}</div>
-                      <div className="text-[11px] text-muted-foreground">Entry {claim.entryNo}</div>
+                      <div className="num font-semibold">
+                        {claim.intimationNo}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Entry {claim.entryNo}
+                      </div>
                     </td>
                     <td className="max-w-[320px] px-4 py-3">
-                      <div className="truncate font-medium">{claim.claimant}</div>
-                      <div className="num truncate text-[11px] text-muted-foreground">{claim.policyNo}</div>
+                      <div className="truncate font-medium">
+                        {claim.claimant}
+                      </div>
+                      <div className="num truncate text-[11px] text-muted-foreground">
+                        {claim.policyNo}
+                      </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{claim.causeOfLoss}</td>
-                    <td className="num whitespace-nowrap px-4 py-3">{claim.intimationDate}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      {claim.causeOfLoss}
+                    </td>
+                    <td className="num whitespace-nowrap px-4 py-3">
+                      {claim.intimationDate}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="shrink-0 rounded-full border border-info/20 bg-info/10 px-2.5 py-1 text-[11px] font-semibold text-info">
                         {claim.status}
                       </span>
                     </td>
-                    <td className="num whitespace-nowrap px-4 py-3 text-right font-semibold">PKR {money(claim.lossPayable)}</td>
-                    <td className="num whitespace-nowrap px-4 py-3 text-right text-muted-foreground">PKR {money(claim.lossDeductable)}</td>
+                    <td className="num whitespace-nowrap px-4 py-3 text-right font-semibold">
+                      PKR {money(claim.lossPayable)}
+                    </td>
+                    <td className="num whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
+                      PKR {money(claim.lossDeductable)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            </div>
+          </div>
         </section>
       </div>
     </AppShell>

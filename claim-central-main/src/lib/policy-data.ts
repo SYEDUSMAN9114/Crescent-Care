@@ -38,12 +38,31 @@ export const causeOfLossOptions = [
   "Other",
 ] as const;
 
-export const benefitsByCause: Record<(typeof causeOfLossOptions)[number], string[]> = {
+export const benefitsByCause: Record<
+  (typeof causeOfLossOptions)[number],
+  string[]
+> = {
   OPD: ["Consultation", "Diagnostics", "Medicines", "Dental Services"],
   IPD: ["Room & Board", "Surgery", "Diagnostics", "Specialist Services"],
-  Emergency: ["Emergency Room", "Ambulance", "Accident Treatment", "Emergency Surgery"],
-  Maternity: ["DNC", "Abortion", "Normal Delivery", "C-Section", "Prenatal Care"],
-  "Special Case": ["PET Scan", "Dentistry Services", "Physiotherapy", "Rehabilitation"],
+  Emergency: [
+    "Emergency Room",
+    "Ambulance",
+    "Accident Treatment",
+    "Emergency Surgery",
+  ],
+  Maternity: [
+    "DNC",
+    "Abortion",
+    "Normal Delivery",
+    "C-Section",
+    "Prenatal Care",
+  ],
+  "Special Case": [
+    "PET Scan",
+    "Dentistry Services",
+    "Physiotherapy",
+    "Rehabilitation",
+  ],
   Other: ["PET Scan", "Dentistry Services", "Diagnostics", "Custom Treatment"],
 };
 
@@ -60,7 +79,12 @@ export const policyDatabase: policy[] = [
       designation: "Site Supervisor",
     },
     deptList: ["Operations", "Field Services", "HSE"],
-    underwritingTerms: ["PET Scan", "Dentistry Services", "Physiotherapy", "Pre-authorization required"],
+    underwritingTerms: [
+      "PET Scan",
+      "Dentistry Services",
+      "Physiotherapy",
+      "Pre-authorization required",
+    ],
     dependent: [
       {
         id: "FM-0046-0",
@@ -109,7 +133,11 @@ export const policyDatabase: policy[] = [
       designation: "Logistics Coordinator",
     },
     deptList: ["Logistics", "Customer Service", "Finance"],
-    underwritingTerms: ["PET Scan", "Dental services", "Pre-existing condition review"],
+    underwritingTerms: [
+      "PET Scan",
+      "Dental services",
+      "Pre-existing condition review",
+    ],
     dependent: [
       {
         id: "FM-0231-0",
@@ -142,7 +170,9 @@ export function lookupPolicy(cardOrCnic: string): policy | null {
   if (!q) return null;
   return (
     policyDatabase.find(
-      (p) => p.cardOrCnic.toLowerCase() === q || p.cardOrCnic.toLowerCase().replace(/-/g, "") === q.replace(/-/g, ""),
+      (p) =>
+        p.cardOrCnic.toLowerCase() === q ||
+        p.cardOrCnic.toLowerCase().replace(/-/g, "") === q.replace(/-/g, ""),
     ) ?? null
   );
 }
@@ -155,7 +185,11 @@ export const hospitalList = [
   "Doctors Hospital (LHE)",
 ];
 
-export const claimStatusOptions = ["Approve", "Reject", "Requirement Needed"] as const;
+export const claimStatusOptions = [
+  "Approve",
+  "Reject",
+  "Requirement Needed",
+] as const;
 
 // Checklist of documents that can be requested / marked as received for a claim
 export const requiredDocumentOptions = [

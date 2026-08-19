@@ -23,7 +23,10 @@ export const Route = createFileRoute("/claims/list")({
         content:
           "Review, revise and settle health claim intimations from a single workspace: statuses, payable amounts, deductibles and revisions at a glance.",
       },
-      { property: "og:title", content: "Claim Intimations — Premier Health Claims Desk" },
+      {
+        property: "og:title",
+        content: "Claim Intimations — Premier Health Claims Desk",
+      },
       {
         property: "og:description",
         content:
@@ -149,7 +152,9 @@ function ClaimsListPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="num text-[13px] font-semibold">{c.intimationNo}</div>
+                      <div className="num text-[13px] font-semibold">
+                        {c.intimationNo}
+                      </div>
                       <div className="text-[11px] text-muted-foreground">
                         Entry {c.entryNo} · {c.policyNo}
                       </div>
@@ -163,7 +168,9 @@ function ClaimsListPage() {
                     <td className="whitespace-nowrap px-4 py-3">
                       <div className="num text-[12px]">{c.intimationDate}</div>
                       <div className="text-[11px] text-muted-foreground">
-                        {c.revisionDate ? `rev ${c.revisionDate}` : "no revision"}
+                        {c.revisionDate
+                          ? `rev ${c.revisionDate}`
+                          : "no revision"}
                       </div>
                     </td>
                     <td className="num whitespace-nowrap px-4 py-3 text-right font-semibold">
@@ -198,7 +205,10 @@ function ClaimsListPage() {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-16 text-center text-sm text-muted-foreground">
+                  <td
+                    colSpan={9}
+                    className="px-4 py-16 text-center text-sm text-muted-foreground"
+                  >
                     No intimations match this filter.
                   </td>
                 </tr>
@@ -209,8 +219,11 @@ function ClaimsListPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-2 px-4 py-3 text-xs text-muted-foreground">
           <span>
-            Showing <span className="num font-semibold text-foreground">{rows.length}</span> of 1,284
-            intimations
+            Showing{" "}
+            <span className="num font-semibold text-foreground">
+              {rows.length}
+            </span>{" "}
+            of 1,284 intimations
           </span>
           <div className="flex items-center gap-1">
             <button className="grid size-8 place-items-center rounded-lg border border-border bg-surface hover:bg-muted">
@@ -241,7 +254,8 @@ function ClaimsListPage() {
 
       <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
         <ArrowUpRight className="size-3.5" />
-        Click any row to focus it, then use the inline actions to view, revise, generate CMR or print.
+        Click any row to focus it, then use the inline actions to view, revise,
+        generate CMR or print.
       </div>
     </AppShell>
   );

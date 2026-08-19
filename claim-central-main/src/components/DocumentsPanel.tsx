@@ -14,7 +14,13 @@ import {
 
 export type DocMode = "split" | "closed";
 
-type Doc = { id: string; name: string; size: number; type: string; url: string };
+type Doc = {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+};
 
 const ZOOM_MIN = 0.25;
 const ZOOM_MAX = 4;
@@ -55,7 +61,10 @@ function Viewer({ doc, zoom }: { doc: Doc | null; zoom: number }) {
           <img
             src={doc.url}
             alt={doc.name}
-            style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: "center center",
+            }}
             className="max-h-[calc(100%-0px)] max-w-full rounded-lg object-contain transition-transform"
           />
         </div>
@@ -74,7 +83,11 @@ function Viewer({ doc, zoom }: { doc: Doc | null; zoom: number }) {
             transformOrigin: "top left",
           }}
         >
-          <iframe src={doc.url} title={doc.name} className="h-full w-full border-0 bg-muted" />
+          <iframe
+            src={doc.url}
+            title={doc.name}
+            className="h-full w-full border-0 bg-muted"
+          />
         </div>
       </div>
     );
@@ -209,7 +222,9 @@ export function DocumentsPanel({
                 >
                   {t}
                   {docsByTab[t].length > 0 && (
-                    <span className="ml-1 opacity-70">{docsByTab[t].length}</span>
+                    <span className="ml-1 opacity-70">
+                      {docsByTab[t].length}
+                    </span>
                   )}
                 </button>
               ))}
@@ -243,11 +258,15 @@ export function DocumentsPanel({
               }}
               onClick={() => inputRef.current?.click()}
               className={`cursor-pointer rounded-xl border border-dashed p-4 text-center transition-colors ${
-                drag ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                drag
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50"
               }`}
             >
               <UploadCloud className="mx-auto mb-1 size-5 text-primary" />
-              <div className="text-xs font-medium">Drop files or click to upload</div>
+              <div className="text-xs font-medium">
+                Drop files or click to upload
+              </div>
               <div className="text-[11px] text-muted-foreground">
                 PDF, JPG, PNG · max 10 MB each
               </div>
@@ -297,7 +316,9 @@ export function DocumentsPanel({
                       setListOpen(false);
                     }}
                     className={`flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-xs transition-colors ${
-                      d.id === activeId ? "bg-accent text-accent-foreground" : "hover:bg-muted"
+                      d.id === activeId
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-muted"
                     }`}
                   >
                     <FileText className="size-3.5 shrink-0 text-muted-foreground" />
@@ -329,7 +350,9 @@ export function DocumentsPanel({
             <button
               title="Zoom out"
               disabled={!active || zoom <= ZOOM_MIN}
-              onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))}
+              onClick={() =>
+                setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))
+              }
               className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
             >
               <ZoomOut className="size-3.5" />
@@ -340,7 +363,9 @@ export function DocumentsPanel({
             <button
               title="Zoom in"
               disabled={!active || zoom >= ZOOM_MAX}
-              onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))}
+              onClick={() =>
+                setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))
+              }
               className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
             >
               <ZoomIn className="size-3.5" />
@@ -372,7 +397,9 @@ export function DocumentsPanel({
         <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-2 select-none">
           <Paperclip className="size-4 text-primary" />
           <span className="text-sm font-semibold">Documents</span>
-          <span className="text-[11px] text-muted-foreground">{totalDocs} file(s)</span>
+          <span className="text-[11px] text-muted-foreground">
+            {totalDocs} file(s)
+          </span>
 
           <div className="ml-auto flex items-center gap-1">
             <button
@@ -380,7 +407,13 @@ export function DocumentsPanel({
               onClick={() => setFullscreen(true)}
               className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg
+                viewBox="0 0 24 24"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
                 <path d="M8 3H3v5M21 8V3h-5M16 21h5v-5M3 16v5h5" />
               </svg>
             </button>
@@ -393,7 +426,9 @@ export function DocumentsPanel({
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">{body}</div>
+        <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+          {body}
+        </div>
       </div>
     );
   }
@@ -411,7 +446,9 @@ export function DocumentsPanel({
         <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-2 select-none">
           <Paperclip className="size-4 text-primary" />
           <span className="text-sm font-semibold">Documents</span>
-          <span className="text-[11px] text-muted-foreground">{totalDocs} file(s)</span>
+          <span className="text-[11px] text-muted-foreground">
+            {totalDocs} file(s)
+          </span>
 
           <div className="ml-auto flex items-center gap-1">
             <button
@@ -419,7 +456,13 @@ export function DocumentsPanel({
               onClick={() => setFullscreen(false)}
               className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg
+                viewBox="0 0 24 24"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
                 <path d="M8 3H3v5M21 8V3h-5M16 21h5v-5M3 16v5h5" />
               </svg>
             </button>
@@ -432,7 +475,9 @@ export function DocumentsPanel({
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">{body}</div>
+        <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+          {body}
+        </div>
       </div>
     </div>
   );

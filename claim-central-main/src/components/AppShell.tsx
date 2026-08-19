@@ -7,7 +7,6 @@ import {
   Building2,
   Receipt,
   Settings,
-  Search,
   Bell,
   ChevronDown,
   PanelLeftClose,
@@ -81,13 +80,15 @@ export function AppShell({
             to="/"
             className="relative z-10 grid size-10 shrink-0 place-items-center rounded-xl bg-ink-foreground/10"
           >
-            <img src={logo} alt="Crescent Care" className="block size-7 object-contain" />
+            <img
+              src={logo}
+              alt="Crescent Care"
+              className="block size-7 object-contain"
+            />
           </Link>
-<<<<<<< HEAD
-          <span className="truncate font-display text-[20px] font-bold text-ink">Crescent Care</span>
-=======
-          <span className="truncate font-display text-[15px] font-bold text-ink">Crescent Care</span>
->>>>>>> 4dd0c99959c40df8c8faa0cf778e16460ca7810b
+          <span className="truncate font-display text-[20px] font-bold text-ink">
+            Crescent Care
+          </span>
           <div className="ml-auto flex items-center gap-3">
             <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
               Year 2026 <ChevronDown className="size-3.5" />
@@ -102,7 +103,9 @@ export function AppShell({
               </div>
               <div className="hidden leading-tight sm:block">
                 <div className="text-xs font-semibold">Faizan Khan</div>
-                <div className="text-[11px] text-muted-foreground">Claims Officer</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Claims Officer
+                </div>
               </div>
             </div>
           </div>
@@ -114,7 +117,9 @@ export function AppShell({
           expanded ? "w-[232px] px-3" : "w-[76px] items-center px-2"
         }`}
       >
-        <div className={`mb-6 flex items-center gap-2.5 ${expanded ? "px-1" : "flex-col"}`}>
+        <div
+          className={`mb-6 flex items-center gap-2.5 ${expanded ? "px-1" : "flex-col"}`}
+        >
           <button
             onClick={() => setExpanded((e) => !e)}
             title={expanded ? "Collapse sidebar" : "Expand sidebar"}
@@ -148,10 +153,15 @@ export function AppShell({
                         : "text-ink-muted hover:bg-ink-foreground/5 hover:text-ink-foreground"
                     }`}
                   >
-                    <item.icon className="size-[18px] shrink-0" strokeWidth={1.75} />
+                    <item.icon
+                      className="size-[18px] shrink-0"
+                      strokeWidth={1.75}
+                    />
                     {expanded ? (
                       <>
-                        <span className="truncate text-sm font-medium">{item.label}</span>
+                        <span className="truncate text-sm font-medium">
+                          {item.label}
+                        </span>
                         <ChevronDown
                           className={`ml-auto size-3.5 shrink-0 transition-transform ${
                             open ? "rotate-180" : ""
@@ -197,9 +207,14 @@ export function AppShell({
                     : "text-ink-muted hover:bg-ink-foreground/5 hover:text-ink-foreground"
                 }`}
               >
-                <item.icon className="size-[18px] shrink-0" strokeWidth={1.75} />
+                <item.icon
+                  className="size-[18px] shrink-0"
+                  strokeWidth={1.75}
+                />
                 {expanded ? (
-                  <span className="truncate text-sm font-medium">{item.label}</span>
+                  <span className="truncate text-sm font-medium">
+                    {item.label}
+                  </span>
                 ) : (
                   <span className="pointer-events-none absolute left-14 z-40 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-xs text-ink-foreground opacity-0 shadow-lift transition-opacity group-hover:opacity-100">
                     {item.label}
@@ -220,7 +235,9 @@ export function AppShell({
         </div>
       </aside>
 
-      <div className={`pt-5 transition-[padding] duration-200 ${expanded ? "lg:pl-[232px]" : "lg:pl-[76px]"}`}>
+      <div
+        className={`pt-5 transition-[padding] duration-200 ${expanded ? "lg:pl-[232px]" : "lg:pl-[76px]"}`}
+      >
         <div className="px-5 pb-16">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>

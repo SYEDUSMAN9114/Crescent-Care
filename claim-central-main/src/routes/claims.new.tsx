@@ -18,6 +18,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { DocumentsPanel, type DocMode } from "@/components/DocumentsPanel";
 import { BenefitsPanel, type BenefitMode } from "@/components/BenefitsPanel";
+import { ApprovalLetterModal } from "@/components/ApprovalLetterModal";
 import {
   lookupPolicy,
   hospitalList,
@@ -38,7 +39,10 @@ export const Route = createFileRoute("/claims/new")({
         content:
           "Register a health claim intimation: member and policy lookup, cover limits, hospital details and line-by-line payment breakdown.",
       },
-      { property: "og:title", content: "New Claim Intimation — Premier Health Claims Desk" },
+      {
+        property: "og:title",
+        content: "New Claim Intimation — Premier Health Claims Desk",
+      },
       {
         property: "og:description",
         content:
@@ -89,7 +93,11 @@ function Field({
         onChange={(e) => onChange?.(e.target.value)}
         className="field-underline mt-0.5 w-full text-sm font-medium"
       />
-      {hint && <span className="mt-1 block text-[11px] text-muted-foreground">{hint}</span>}
+      {hint && (
+        <span className="mt-1 block text-[11px] text-muted-foreground">
+          {hint}
+        </span>
+      )}
     </label>
   );
 }
@@ -205,6 +213,7 @@ const STEPS: { id: StepId; label: string }[] = [
 function NewClaim() {
   const [docMode, setDocMode] = useState<DocMode>("closed");
   const [benefitMode, setBenefitMode] = useState<BenefitMode>("closed");
+  const [approvalLetterOpen, setApprovalLetterOpen] = useState(false);
 
   // wizard progress
   const [step, setStep] = useState<StepId>("identify");
@@ -217,7 +226,9 @@ function NewClaim() {
   const [entryNo] = useState("1");
   const [idMode, setIdMode] = useState<IdMode>("card");
   const [cardOrCnic, setCardOrCnic] = useState("");
-  const [fetchState, setFetchState] = useState<"idle" | "loading" | "error">("idle");
+  const [fetchState, setFetchState] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
 
   // step 2 — policy & member (+ claim details, merged)
   const [policy, setPolicy] = useState<policy | null>(null);
@@ -300,8 +311,17 @@ function NewClaim() {
     }
   };
 
-  const requiredDetailFields = [causeOfLoss, selectedBenefit, diagnosis, treatment, stay, hospital, status];
-  const coreFieldsComplete = !!patient && requiredDetailFields.every((v) => v.trim() !== "");
+  const requiredDetailFields = [
+    causeOfLoss,
+    selectedBenefit,
+    diagnosis,
+    treatment,
+    stay,
+    hospital,
+    status,
+  ];
+  const coreFieldsComplete =
+    !!patient && requiredDetailFields.every((v) => v.trim() !== "");
 
   const goToDocuments = () => {
     if (coreFieldsComplete) {
@@ -312,12 +332,14 @@ function NewClaim() {
 
   // remarks are optional on Approve, but mandatory on Reject / Requirement Needed;
   // a reviewer name is additionally required when the case is rejected
-  const remarksRequired = status === "Reject" || status === "Requirement Needed";
+  const remarksRequired =
+    status === "Reject" || status === "Requirement Needed";
   const reviewerNameRequired = status === "Reject";
   const remarksValid = !remarksRequired || remarks.trim() !== "";
   const reviewerNameValid = !reviewerNameRequired || reviewerName.trim() !== "";
 
-  const detailsComplete = coreFieldsComplete && remarksValid && reviewerNameValid;
+  const detailsComplete =
+    coreFieldsComplete && remarksValid && reviewerNameValid;
 
   const documentOptions =
     status === "Approve"
@@ -330,6 +352,9 @@ function NewClaim() {
     setAttemptedSubmit(true);
     if (!detailsComplete) return;
     setSubmitted(true);
+    if (status === "Approve") {
+      setApprovalLetterOpen(true);
+    }
   };
 
   return (
@@ -423,7 +448,13 @@ function NewClaim() {
                           : "bg-border/70"
                     }`}
                   >
-                    {locked ? <Lock className="size-2.5" /> : done ? <Check className="size-3" /> : i + 1}
+                    {locked ? (
+                      <Lock className="size-2.5" />
+                    ) : done ? (
+                      <Check className="size-3" />
+                    ) : (
+                      i + 1
+                    )}
                   </span>
                   {s.label}
                 </button>
@@ -451,14 +482,19 @@ function NewClaim() {
                     <div
                       className="absolute inset-y-1 w-15 rounded-lg bg-ink transition-transform duration-200 ease-out"
                       style={{
-                        transform: idMode === "cnic" ? "translateX(100%)" : "translateX(0%)",
+                        transform:
+                          idMode === "cnic"
+                            ? "translateX(100%)"
+                            : "translateX(0%)",
                       }}
                     />
                     <button
                       type="button"
                       onClick={() => handleIdModeChange("card")}
                       className={`relative z-10 w-15 rounded-lg py-2 text-xs font-semibold transition-colors ${
-                        idMode === "card" ? "text-ink-foreground" : "text-muted-foreground"
+                        idMode === "card"
+                          ? "text-ink-foreground"
+                          : "text-muted-foreground"
                       }`}
                     >
                       Card No.
@@ -467,7 +503,9 @@ function NewClaim() {
                       type="button"
                       onClick={() => handleIdModeChange("cnic")}
                       className={`relative z-10 w-15 rounded-lg py-2 text-xs font-semibold transition-colors ${
-                        idMode === "cnic" ? "text-ink-foreground" : "text-muted-foreground"
+                        idMode === "cnic"
+                          ? "text-ink-foreground"
+                          : "text-muted-foreground"
                       }`}
                     >
                       CNIC
@@ -484,7 +522,11 @@ function NewClaim() {
                     <input
                       type="text"
                       value={cardOrCnic}
-                      placeholder={idMode === "card" ? "e.g. 000046" : "e.g. 42101-1234567-9"}
+                      placeholder={
+                        idMode === "card"
+                          ? "e.g. 000046"
+                          : "e.g. 42101-1234567-9"
+                      }
                       onChange={(e) => {
                         setCardOrCnic(e.target.value);
                         setFetchState("idle");
@@ -514,8 +556,9 @@ function NewClaim() {
 
               {fetchState === "error" && (
                 <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive">
-                  No policy found for that {idMode === "card" ? "card number" : "CNIC"}. Please
-                  check and try again.
+                  No policy found for that{" "}
+                  {idMode === "card" ? "card number" : "CNIC"}. Please check and
+                  try again.
                 </p>
               )}
 
@@ -527,9 +570,23 @@ function NewClaim() {
                   </div>
                   <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
                     <Field label="Client ID" value={policy.clientId} readOnly />
-                    <Field label="Client name" value={policy.clientName} readOnly wide />
-                    <Field label="Policy no." value={policy.policyNo} readOnly />
-                    <Field label="Policy period" value={policy.policyPeriod} readOnly wide />
+                    <Field
+                      label="Client name"
+                      value={policy.clientName}
+                      readOnly
+                      wide
+                    />
+                    <Field
+                      label="Policy no."
+                      value={policy.policyNo}
+                      readOnly
+                    />
+                    <Field
+                      label="Policy period"
+                      value={policy.policyPeriod}
+                      readOnly
+                      wide
+                    />
                     <Field
                       label="Employee info"
                       value={`${policy.employeeInfo.empId} — ${policy.employeeInfo.empName} (${policy.employeeInfo.designation})`}
@@ -555,7 +612,10 @@ function NewClaim() {
                       value={causeOfLoss}
                       onChange={handleCauseSelect}
                       placeholder="Choose cause of loss..."
-                      options={causeOfLossOptions.map((cause) => ({ value: cause, label: cause }))}
+                      options={causeOfLossOptions.map((cause) => ({
+                        value: cause,
+                        label: cause,
+                      }))}
                     />
                     <SelectField
                       label="Benefit"
@@ -564,12 +624,16 @@ function NewClaim() {
                       onChange={setSelectedBenefit}
                       disabled={!causeOfLoss}
                       placeholder="Choose benefit..."
-                      options={causeOfLoss
-                        ? benefitsByCause[causeOfLoss as (typeof causeOfLossOptions)[number]].map((benefit) => ({
-                            value: benefit,
-                            label: benefit,
-                          }))
-                        : []}
+                      options={
+                        causeOfLoss
+                          ? benefitsByCause[
+                              causeOfLoss as (typeof causeOfLossOptions)[number]
+                            ].map((benefit) => ({
+                              value: benefit,
+                              label: benefit,
+                            }))
+                          : []
+                      }
                     />
                   </div>
                 </div>
@@ -644,7 +708,10 @@ function NewClaim() {
                   required
                   value={status}
                   onChange={setStatus}
-                  options={claimStatusOptions.map((s) => ({ value: s, label: s }))}
+                  options={claimStatusOptions.map((s) => ({
+                    value: s,
+                    label: s,
+                  }))}
                 />
               </div>
 
@@ -660,7 +727,8 @@ function NewClaim() {
                   disabled={!coreFieldsComplete}
                   className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Next: Documents &amp; remarks <ChevronRight className="size-4" />
+                  Next: Documents &amp; remarks{" "}
+                  <ChevronRight className="size-4" />
                 </button>
               </div>
             </Section>
@@ -676,10 +744,12 @@ function NewClaim() {
               {/* ---- remarks & requirement ---- */}
               <div className="mt-6 border-t border-border pt-5">
                 <div className="mb-3">
-                  <h3 className="text-sm font-semibold">Remarks & requirement</h3>
+                  <h3 className="text-sm font-semibold">
+                    Remarks & requirement
+                  </h3>
                   <p className="text-xs text-muted-foreground">
-                    Tick anything still needed from the claimant, e.g. approve the case but ask
-                    for an additional lab report.
+                    Tick anything still needed from the claimant, e.g. approve
+                    the case but ask for an additional lab report.
                   </p>
                 </div>
 
@@ -716,7 +786,9 @@ function NewClaim() {
                   <label className="block sm:col-span-2">
                     <span className="label-cap flex items-center gap-1">
                       Remarks
-                      {remarksRequired && <span className="text-destructive">*</span>}
+                      {remarksRequired && (
+                        <span className="text-destructive">*</span>
+                      )}
                     </span>
                     <textarea
                       value={remarks}
@@ -736,7 +808,8 @@ function NewClaim() {
                     </span>
                     {attemptedSubmit && remarksRequired && !remarksValid && (
                       <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
-                        <AlertTriangle className="size-3" /> Please add remarks before submitting.
+                        <AlertTriangle className="size-3" /> Please add remarks
+                        before submitting.
                       </span>
                     )}
                   </label>
@@ -752,18 +825,20 @@ function NewClaim() {
                     />
                   )}
                 </div>
-                {attemptedSubmit && reviewerNameRequired && !reviewerNameValid && (
-                  <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
-                    <AlertTriangle className="size-3" /> Please enter your name to reject this
-                    claim.
-                  </span>
-                )}
+                {attemptedSubmit &&
+                  reviewerNameRequired &&
+                  !reviewerNameValid && (
+                    <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
+                      <AlertTriangle className="size-3" /> Please enter your
+                      name to reject this claim.
+                    </span>
+                  )}
               </div>
 
               {submitted && (
                 <p className="mt-5 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
-                  <Check className="size-3.5" /> Claim saved for {patient.name} — status:{" "}
-                  {status || "—"}
+                  <Check className="size-3.5" /> Claim saved for {patient.name}{" "}
+                  — status: {status || "—"}
                   {reviewerName ? ` — reviewed by ${reviewerName}` : ""}
                 </p>
               )}
@@ -815,6 +890,9 @@ function NewClaim() {
           />
         </aside>
       </div>
+      {approvalLetterOpen && (
+        <ApprovalLetterModal onClose={() => setApprovalLetterOpen(false)} />
+      )}
     </AppShell>
   );
 }

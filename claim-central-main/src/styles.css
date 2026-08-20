@@ -201,3 +201,20 @@
     border-bottom-style: dashed;
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .approval-letter-print,
+  .approval-letter-print * {
+    visibility: visible;
+  }
+
+  .approval-letter-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+}

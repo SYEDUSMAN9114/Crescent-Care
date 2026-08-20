@@ -10,6 +10,8 @@ import {
   ZoomOut,
   RotateCcw,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export type DocMode = "split" | "closed";
@@ -44,7 +46,15 @@ function formatSize(b: number) {
   return `${(b / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function Viewer({ doc, zoom }: { doc: Doc | null; zoom: number }) {
+function Viewer({
+  doc,
+  zoom,
+  pdfPage,
+}: {
+  doc: Doc | null;
+  zoom: number;
+  pdfPage: number;
+}) {
   if (!doc) {
     return (
       <div className="grid h-full place-items-center p-6 text-center text-xs text-muted-foreground">
@@ -84,7 +94,7 @@ function Viewer({ doc, zoom }: { doc: Doc | null; zoom: number }) {
           }}
         >
           <iframe
-            src={doc.url}
+            src={`${doc.url}#page=${pdfPage}&toolbar=0&navpanes=0`}
             title={doc.name}
             className="h-full w-full border-0 bg-muted"
           />
@@ -128,6 +138,7 @@ export function DocumentsPanel({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [pdfPage, setPdfPage] = useState(1);
   const [listOpen, setListOpen] = useState(false);
 
   const [fullscreen, setFullscreen] = useState(false);
@@ -139,7 +150,10 @@ export function DocumentsPanel({
   const active = docs.find((d) => d.id === activeId) ?? null;
 
   // Reset zoom when the previewed document changes.
-  useEffect(() => setZoom(1), [activeId]);
+  useEffect(() => {
+    setZoom(1);
+    setPdfPage(1);
+  }, [activeId]);
 
   // Close the dropdown when clicking outside of it.
   useEffect(() => {
@@ -347,6 +361,28 @@ export function DocumentsPanel({
           </div>
 
           <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border p-0.5">
+            {active?.type === "application/pdf" && (
+              <>
+                <button
+                  title="Previous page"
+                  disabled={pdfPage <= 1}
+                  onClick={() => setPdfPage((page) => Math.max(1, page - 1))}
+                  className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+                >
+                  <ChevronLeft className="size-3.5" />
+                </button>
+                <span className="w-12 text-center text-[11px] tabular-nums text-muted-foreground">
+                  Page {pdfPage}
+                </span>
+                <button
+                  title="Next page"
+                  onClick={() => setPdfPage((page) => page + 1)}
+                  className="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <ChevronRight className="size-3.5" />
+                </button>
+              </>
+            )}
             <button
               title="Zoom out"
               disabled={!active || zoom <= ZOOM_MIN}
@@ -382,7 +418,7 @@ export function DocumentsPanel({
         </div>
 
         <div className="min-h-0 min-w-0">
-          <Viewer doc={active} zoom={zoom} />
+          <Viewer doc={active} zoom={zoom} pdfPage={pdfPage} />
         </div>
       </div>
     </div>

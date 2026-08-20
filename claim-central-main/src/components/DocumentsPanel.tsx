@@ -212,7 +212,7 @@ export function DocumentsPanel({
   }
 
   const body = (
-    <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_1fr] overflow-hidden">
+    <div className="grid h-full min-h-0 min-w-0 flex-1 grid-rows-[auto_1fr] overflow-hidden">
       <div className="min-w-0 border-b border-border">
         <div className="flex min-w-0 items-center gap-1 px-2 py-1.5">
           <div
@@ -301,7 +301,7 @@ export function DocumentsPanel({
         />
       </div>
 
-      <div className="grid min-h-0 min-w-0 grid-rows-[auto_1fr]">
+      <div className="grid min-h-0 min-w-0 grid-rows-[auto_1fr] overflow-hidden">
         {/* Document picker + zoom toolbar — wraps so it never overflows the panel */}
         <div
           className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2"
@@ -417,7 +417,7 @@ export function DocumentsPanel({
           </div>
         </div>
 
-        <div className="min-h-0 min-w-0">
+        <div className="min-h-0 min-w-0 overflow-hidden">
           <Viewer doc={active} zoom={zoom} pdfPage={pdfPage} />
         </div>
       </div>
@@ -429,7 +429,7 @@ export function DocumentsPanel({
   // Split view: side panel. Fullscreen: modal popup at 80% of viewport.
   if (!fullscreen) {
     return (
-      <div className="sticky top-25 z-10 relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg h-full max-h-[calc(100vh-180px)]">
+      <div className="relative z-10 flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
         <div className="flex items-center gap-2 border-b border-border bg-muted px-3 py-2 select-none">
           <Paperclip className="size-4 text-primary" />
           <span className="text-sm font-semibold">Documents</span>
@@ -462,7 +462,7 @@ export function DocumentsPanel({
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+        <div className="min-h-0 flex-1 overflow-hidden scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
           {body}
         </div>
       </div>
@@ -511,7 +511,7 @@ export function DocumentsPanel({
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+        <div className="min-h-0 flex-1 overflow-hidden scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
           {body}
         </div>
       </div>

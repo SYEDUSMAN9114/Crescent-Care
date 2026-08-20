@@ -164,7 +164,7 @@ export function ApprovalLetterModal({ onClose }: { onClose: () => void }) {
         </header>
 
         <div className="flex-1 overflow-y-auto bg-muted p-4 sm:p-7 print:overflow-visible print:bg-white print:p-0">
-          <article className="mx-auto w-full max-w-[850px] bg-white p-7 text-[#292734] shadow-lift sm:p-10">
+          <article className="approval-letter-print mx-auto w-full max-w-[850px] bg-white p-7 text-[#292734] shadow-lift sm:p-10 print:max-w-none print:p-8 print:shadow-none">
             <div className="flex items-start justify-between gap-6 border-b-2 border-[#33216d] pb-5">
               <div>
                 <div className="font-display text-2xl font-bold text-[#33216d]">

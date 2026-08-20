@@ -239,11 +239,13 @@ export function AppShell({
         className={`pt-5 transition-[padding] duration-200 ${expanded ? "lg:pl-[232px]" : "lg:pl-[76px]"}`}
       >
         <div className="px-5 pb-16">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div className="sticky top-14 z-40 -mx-5 mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-border/70 bg-background/90 px-5 py-3 backdrop-blur-md">
             <div>
-              <h1 className="text-2xl font-semibold">{title}</h1>
+              <h1 className="text-xl font-semibold">{title}</h1>
               {subtitle ? (
-                <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+                <p className="mt-0.5 max-w-2xl text-xs leading-4 text-muted-foreground">
+                  {subtitle}
+                </p>
               ) : null}
             </div>
             {actions}

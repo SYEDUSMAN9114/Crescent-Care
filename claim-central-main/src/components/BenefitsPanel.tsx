@@ -118,11 +118,12 @@ const otherBenefitsMetrics: BenefitMetric[] = [
 export function BenefitsPanel({
   mode,
   onModeChange,
-  causeOfLoss = "Maternity",
+  causeOfLoss = "",
   selectedBenefit = "",
   memberName = "",
   underwritingTerms = [],
   selectedMember,
+  hasPolicy = false,
 }: {
   mode: BenefitMode;
   onModeChange: (m: BenefitMode) => void;
@@ -131,22 +132,35 @@ export function BenefitsPanel({
   memberName?: string;
   underwritingTerms?: string[];
   selectedMember?: dependent;
+  hasPolicy?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<BenefitTab>("policy");
   const [fullscreen, setFullscreen] = useState(false);
-  const hasSelections = Boolean(causeOfLoss && selectedBenefit && memberName);
 
+  const hasCauseSelections = Boolean(
+    causeOfLoss && selectedBenefit && memberName,
+  );
+
+  // Auto-switch tab based on available data
   useEffect(() => {
-    if (hasSelections) setActiveTab("cause");
-  }, [hasSelections]);
+    if (hasCauseSelections) {
+      setActiveTab("cause");
+    } else if (hasPolicy) {
+      setActiveTab("policy");
+    }
+  }, [hasCauseSelections, hasPolicy]);
 
-  const tabs: { id: BenefitTab; label: string }[] = hasSelections
-    ? [
-        { id: "policy", label: "Policy" },
-        { id: "cause", label: `${causeOfLoss}` },
-        { id: "other", label: "Others" },
-      ]
-    : [];
+  // Build tabs dynamically
+  const tabs: { id: BenefitTab; label: string }[] = [];
+  if (hasPolicy || hasCauseSelections) {
+    tabs.push({ id: "policy", label: "Policy" });
+  }
+  if (hasCauseSelections) {
+    tabs.push(
+      { id: "cause", label: causeOfLoss || "Cause" },
+      { id: "other", label: "Others" },
+    );
+  }
 
   const summaryForTab = {
     policy: {
@@ -156,7 +170,7 @@ export function BenefitsPanel({
       coverage: policyCoverageSummary,
     },
     cause: {
-      title: causeOfLoss,
+      title: causeOfLoss || "Cause of loss",
       subtitle: "Cause-of-loss specific cover and entitlements",
       metrics: causeSpecificMetrics(causeOfLoss, selectedBenefit, memberName),
       coverage: [
@@ -184,7 +198,106 @@ export function BenefitsPanel({
 
   if (mode === "closed") return null;
 
-  // Split view: side panel. Fullscreen: modal popup at 60% of viewport.
+  const content = (
+    <div className="space-y-4">
+      {!hasPolicy && !hasCauseSelections ? (
+        <div className="rounded-xl border border-border bg-surface-2 p-5 text-center">
+          <div className="text-sm font-semibold text-foreground">
+            Benefits panel ready
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Enter Card/CNIC to see policy details, or select member + cause of
+            loss + benefit for full coverage information.
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+              Fetched benefit info
+            </div>
+            <div className="mt-2 text-base font-semibold text-foreground">
+              {activeSummary.title}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {activeSummary.subtitle}
+            </div>
+          </div>
+
+          {/* Member metrics only on Cause tab */}
+          {activeTab === "cause" && (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              {memberMetrics(selectedMember, underwritingTerms).map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-xl border border-border bg-surface-2 p-3"
+                >
+                  <div className="label-cap">{item.label}</div>
+                  <div className="mt-1 text-sm font-semibold text-foreground">
+                    {item.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            {activeSummary.metrics.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-xl border border-border bg-surface-2 p-3"
+              >
+                <div className="label-cap">{item.label}</div>
+                <div
+                  className={`mt-1 text-sm font-semibold ${
+                    item.tone === "primary"
+                      ? "text-primary"
+                      : item.tone === "success"
+                        ? "text-emerald-600"
+                        : "text-foreground"
+                  }`}
+                >
+                  {item.value}
+                </div>
+                {item.meta && (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    {item.meta}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-xl border border-border bg-surface-2 p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-semibold">Coverage summary</div>
+              <span className="text-[11px] text-muted-foreground">Active</span>
+            </div>
+            <div className="space-y-3">
+              {activeSummary.coverage.map((item) => (
+                <div key={item.label}>
+                  <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>{item.label}</span>
+                    <span className="font-medium text-foreground">
+                      {item.value}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-border">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${item.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // ---------- Split view ----------
   if (!fullscreen) {
     return (
       <aside className="sticky top-25 z-10 relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg h-full max-h-[calc(100vh-180px)]">
@@ -193,7 +306,6 @@ export function BenefitsPanel({
             <ShieldCheck className="size-4 text-primary" />
             <span className="text-sm font-semibold">Benefits</span>
           </div>
-
           <div className="flex items-center gap-1">
             <button
               title="Full screen"
@@ -220,134 +332,35 @@ export function BenefitsPanel({
           </div>
         </div>
 
-        <div className="border-b border-border bg-surface-2">
-          <div className="flex gap-1 overflow-x-auto px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                  activeTab === tab.id
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        {tabs.length > 0 && (
+          <div className="border-b border-border bg-surface-2">
+            <div className="flex gap-1 overflow-x-auto px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    activeTab === tab.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-4 [scrollbar-width:thin] [scrollbar-color:hsl(var(--muted-foreground)_/_0.3)_transparent]">
-          <div className="space-y-4">
-            {!hasSelections ? (
-              <div className="rounded-xl border border-border bg-surface-2 p-5 text-center">
-                <div className="text-sm font-semibold text-foreground">
-                  Benefits panel ready
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Select a member, cause of loss, and benefit to fetch coverage
-                  information.
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-                    Fetched benefit info
-                  </div>
-                  <div className="mt-2 text-base font-semibold text-foreground">
-                    {activeSummary.title}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {activeSummary.subtitle}
-                  </div>
-                </div>
-
-                {activeTab === "cause" && (
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                    {memberMetrics(selectedMember, underwritingTerms).map(
-                      (item) => (
-                        <div
-                          key={item.label}
-                          className="rounded-xl border border-border bg-surface-2 p-3"
-                        >
-                          <div className="label-cap">{item.label}</div>
-                          <div className="mt-1 text-sm font-semibold text-foreground">
-                            {item.value}
-                          </div>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                )}
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  {activeSummary.metrics.map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-xl border border-border bg-surface-2 p-3"
-                    >
-                      <div className="label-cap">{item.label}</div>
-                      <div
-                        className={`mt-1 text-sm font-semibold ${
-                          item.tone === "primary"
-                            ? "text-primary"
-                            : item.tone === "success"
-                              ? "text-emerald-600"
-                              : "text-foreground"
-                        }`}
-                      >
-                        {item.value}
-                      </div>
-                      {item.meta && (
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          {item.meta}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-xl border border-border bg-surface-2 p-3">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-sm font-semibold">
-                      Coverage summary
-                    </div>
-                    <span className="text-[11px] text-muted-foreground">
-                      Active
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {activeSummary.coverage.map((item) => (
-                      <div key={item.label}>
-                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>{item.label}</span>
-                          <span className="font-medium text-foreground">
-                            {item.value}
-                          </span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-border">
-                          <div
-                            className="h-full rounded-full bg-primary"
-                            style={{ width: `${item.percent}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          {content}
         </div>
       </aside>
     );
   }
 
-    // Fullscreen mode: fixed modal popup above the app shell chrome.
+  // ---------- Fullscreen modal ----------
   const fullscreenPanel = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70 p-3 backdrop-blur-sm sm:p-6">
       <aside
@@ -356,14 +369,12 @@ export function BenefitsPanel({
           maxWidth: "880px",
           height: "min(80vh, 720px)",
         }}
-
       >
         <div className="flex items-center justify-between border-b border-border bg-muted px-3 py-2.5">
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-4 text-primary" />
             <span className="text-sm font-semibold">Benefits</span>
           </div>
-
           <div className="flex items-center gap-1">
             <button
               title="Exit full screen"
@@ -390,110 +401,29 @@ export function BenefitsPanel({
           </div>
         </div>
 
-        <div className="border-b border-border bg-surface-2">
-          <div className="flex gap-1 overflow-x-auto px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                  activeTab === tab.id
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        {tabs.length > 0 && (
+          <div className="border-b border-border bg-surface-2">
+            <div className="flex gap-1 overflow-x-auto px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    activeTab === tab.id
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex-1 overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent p-4">
-          <div className="space-y-4">
-            {!hasSelections ? (
-              <div className="rounded-xl border border-border bg-surface-2 p-5 text-center">
-                <div className="text-sm font-semibold text-foreground">
-                  Benefits panel ready
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Select a member, cause of loss, and benefit to fetch coverage
-                  information.
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="rounded-xl border border-primary/15 bg-primary/5 p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-                    Fetched benefit info
-                  </div>
-                  <div className="mt-2 text-base font-semibold text-foreground">
-                    {activeSummary.title}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {activeSummary.subtitle}
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  {activeSummary.metrics.map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-xl border border-border bg-surface-2 p-3"
-                    >
-                      <div className="label-cap">{item.label}</div>
-                      <div
-                        className={`mt-1 text-sm font-semibold ${
-                          item.tone === "primary"
-                            ? "text-primary"
-                            : item.tone === "success"
-                              ? "text-emerald-600"
-                              : "text-foreground"
-                        }`}
-                      >
-                        {item.value}
-                      </div>
-                      {item.meta && (
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          {item.meta}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-xl border border-border bg-surface-2 p-3">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div className="text-sm font-semibold">
-                      Coverage summary
-                    </div>
-                    <span className="text-[11px] text-muted-foreground">
-                      Active
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {activeSummary.coverage.map((item) => (
-                      <div key={item.label}>
-                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>{item.label}</span>
-                          <span className="font-medium text-foreground">
-                            {item.value}
-                          </span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-border">
-                          <div
-                            className="h-full rounded-full bg-primary"
-                            style={{ width: `${item.percent}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          {content}
         </div>
       </aside>
     </div>

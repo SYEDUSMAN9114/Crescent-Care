@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Clock3, X } from "lucide-react";
 import type { ClaimHistoryItem } from "@/lib/policy-data";
 
@@ -148,11 +149,11 @@ export function ClientHistoryPanel({
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-6 backdrop-blur-sm">
+    const fullscreenPanel = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70 p-3 backdrop-blur-sm sm:p-6">
       <aside
-        className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
-        style={{ width: "min(80vw, 1000px)", height: "min(80vh, 720px)" }}
+        className="relative flex max-h-[calc(100vh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl sm:max-h-[calc(100vh-3rem)]"
+        style={{ maxWidth: "1000px", height: "min(80vh, 720px)" }}
       >
         {header}
         <div className="flex-1 overflow-y-auto">
@@ -161,4 +162,8 @@ export function ClientHistoryPanel({
       </aside>
     </div>
   );
+
+  return typeof document === "undefined"
+    ? fullscreenPanel
+    : createPortal(fullscreenPanel, document.body);
 }

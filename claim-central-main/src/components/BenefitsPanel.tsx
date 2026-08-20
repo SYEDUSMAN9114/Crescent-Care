@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ShieldCheck, X } from "lucide-react";
 import type { dependent } from "@/lib/policy-data";
 
@@ -346,15 +347,16 @@ export function BenefitsPanel({
     );
   }
 
-  // Fullscreen mode: fixed modal popup at 80% of viewport
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-6 backdrop-blur-sm">
+    // Fullscreen mode: fixed modal popup above the app shell chrome.
+  const fullscreenPanel = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70 p-3 backdrop-blur-sm sm:p-6">
       <aside
-        className="relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        className="relative flex max-h-[calc(100vh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl sm:max-h-[calc(100vh-3rem)]"
         style={{
-          width: "min(80vw, 880px)",
+          maxWidth: "880px",
           height: "min(80vh, 720px)",
         }}
+
       >
         <div className="flex items-center justify-between border-b border-border bg-muted px-3 py-2.5">
           <div className="flex items-center gap-2">
@@ -496,4 +498,8 @@ export function BenefitsPanel({
       </aside>
     </div>
   );
+
+  return typeof document === "undefined"
+    ? fullscreenPanel
+    : createPortal(fullscreenPanel, document.body);
 }

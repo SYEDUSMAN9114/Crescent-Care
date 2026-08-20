@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
+  BadgeCheck,
   ClipboardList,
   FilePlus2,
   Gauge,
-  Scale,
+  FileQuestion,
   TrendingUp,
-  WalletCards,
 } from "lucide-react";
 import {
   Bar,
@@ -46,8 +46,11 @@ function DashboardPage() {
   const totals = useMemo(
     () => ({
       intimations: claims.length,
-      payable: claims.reduce((sum, claim) => sum + claim.lossPayable, 0),
-      deductibles: claims.reduce((sum, claim) => sum + claim.lossDeductable, 0),
+      awaitingApproval: claims.filter((claim) => claim.status === "Revised")
+        .length,
+      requirementNeeded: claims.filter(
+        (claim) => claim.status === "Requirement Needed",
+      ).length,
       awaitingSettlement: claims.filter((claim) => claim.status !== "Posted")
         .length,
       settled: claims.filter((claim) => claim.status === "Full & Final").length,
@@ -70,16 +73,16 @@ function DashboardPage() {
       icon: ClipboardList,
     },
     {
-      label: "Loss payable",
-      value: money(totals.payable),
-      hint: "PKR across visible intimations",
-      icon: WalletCards,
+      label: "Awaiting approval",
+      value: totals.awaitingApproval.toString(),
+      hint: "Revised claims waiting for approval",
+      icon: BadgeCheck,
     },
     {
-      label: "Deductibles",
-      value: money(totals.deductibles),
-      hint: "PKR to adjust before settlement",
-      icon: Scale,
+      label: "Requirement Needed",
+      value: totals.requirementNeeded.toString(),
+      hint: "Claims pending required documents",
+      icon: FileQuestion,
     },
     {
       label: "Awaiting settlement",

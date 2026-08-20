@@ -142,9 +142,9 @@ export function BenefitsPanel({
 
   const tabs: { id: BenefitTab; label: string }[] = hasSelections
     ? [
-        { id: "policy", label: "Policy benefits" },
-        { id: "cause", label: `${causeOfLoss} benefits` },
-        { id: "other", label: "Other benefits" },
+        { id: "policy", label: "Policy" },
+        { id: "cause", label: `${causeOfLoss}` },
+        { id: "other", label: "Others" },
       ]
     : [];
 

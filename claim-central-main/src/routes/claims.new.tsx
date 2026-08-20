@@ -6,6 +6,7 @@ import {
   Save,
   Paperclip,
   FileText,
+  History,
   Lock,
   Check,
   ChevronRight,
@@ -18,9 +19,14 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { DocumentsPanel, type DocMode } from "@/components/DocumentsPanel";
 import { BenefitsPanel, type BenefitMode } from "@/components/BenefitsPanel";
+import {
+  ClientHistoryPanel,
+  type ClientHistoryMode,
+} from "@/components/ClientHistoryPanel";
 import { ApprovalLetterModal } from "@/components/ApprovalLetterModal";
 import {
   lookupPolicy,
+  lookupClaimHistory,
   hospitalList,
   claimStatusOptions,
   requiredDocumentOptions,
@@ -213,6 +219,7 @@ const STEPS: { id: StepId; label: string }[] = [
 function NewClaim() {
   const [docMode, setDocMode] = useState<DocMode>("closed");
   const [benefitMode, setBenefitMode] = useState<BenefitMode>("closed");
+  const [historyMode, setHistoryMode] = useState<ClientHistoryMode>("closed");
   const [approvalLetterOpen, setApprovalLetterOpen] = useState(false);
 
   // wizard progress
@@ -253,8 +260,11 @@ function NewClaim() {
   const [requestedDocs, setRequestedDocs] = useState<string[]>([]);
   const [otherDocNote, setOtherDocNote] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [reviewerName, setReviewerName] = useState("");
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const claimHistory = useMemo(
+    () => lookupClaimHistory(cardOrCnic),
+    [cardOrCnic],
+  );
 
   const toggleRequestedDoc = (doc: string) => {
     setRequestedDocs((prev) =>
@@ -267,6 +277,7 @@ function NewClaim() {
     setCardOrCnic("");
     setFetchState("idle");
     setPolicy(null);
+    setHistoryMode("closed");
     setPatientId("");
     setCauseOfLoss("");
     setSelectedBenefit("");
@@ -284,6 +295,7 @@ function NewClaim() {
       if (!record) {
         setFetchState("error");
         setPolicy(null);
+        setHistoryMode("closed");
         return;
       }
       setFetchState("idle");
@@ -330,16 +342,12 @@ function NewClaim() {
     }
   };
 
-  // remarks are optional on Approve, but mandatory on Reject / Requirement Needed;
-  // a reviewer name is additionally required when the case is rejected
+  // remarks are optional on Approve, but mandatory on Reject / Requirement Needed.
   const remarksRequired =
     status === "Reject" || status === "Requirement Needed";
-  const reviewerNameRequired = status === "Reject";
   const remarksValid = !remarksRequired || remarks.trim() !== "";
-  const reviewerNameValid = !reviewerNameRequired || reviewerName.trim() !== "";
 
-  const detailsComplete =
-    coreFieldsComplete && remarksValid && reviewerNameValid;
+  const detailsComplete = coreFieldsComplete && remarksValid;
 
   const documentOptions =
     status === "Approve"
@@ -372,6 +380,7 @@ function NewClaim() {
           <button
             onClick={() => {
               setBenefitMode("closed");
+              setHistoryMode("closed");
               setDocMode((m) => (m === "closed" ? "split" : "closed"));
             }}
             className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium shadow-card transition-colors ${
@@ -385,6 +394,7 @@ function NewClaim() {
           <button
             onClick={() => {
               setDocMode("closed");
+              setHistoryMode("closed");
               setBenefitMode((m) => (m === "closed" ? "split" : "closed"));
             }}
             className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium shadow-card transition-colors ${
@@ -394,6 +404,20 @@ function NewClaim() {
             }`}
           >
             <ShieldCheck className="size-4" strokeWidth={1.75} /> Benefits
+          </button>
+          <button
+            onClick={() => {
+              setDocMode("closed");
+              setBenefitMode("closed");
+              setHistoryMode((m) => (m === "closed" ? "split" : "closed"));
+            }}
+            className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium shadow-card transition-colors ${
+              historyMode !== "closed"
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-border bg-surface hover:bg-muted"
+            }`}
+          >
+            <History className="size-4" strokeWidth={1.75} /> Client history
           </button>
           <Link
             to="/claims/new/settlement"
@@ -411,56 +435,61 @@ function NewClaim() {
         </div>
       }
     >
-      <div
-        className={`grid gap-5 ${docMode === "split" || benefitMode === "split" ? "xl:grid-cols-[1fr_460px]" : "grid-cols-1"}`}
-      >
-        <div className="min-w-0 space-y-5">
-          {/* ---- tab bar ---- */}
-          <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1.5 shadow-card">
-            {STEPS.map((s, i) => {
-              const locked =
-                (s.id === "details" && !detailsUnlocked) ||
-                (s.id === "documents" && !documentsUnlocked);
-              const active = step === s.id;
-              const done =
-                (s.id === "identify" && detailsUnlocked) ||
-                (s.id === "details" && documentsUnlocked) ||
-                (s.id === "documents" && submitted);
-              return (
-                <button
-                  key={s.id}
-                  disabled={locked}
-                  onClick={() => !locked && setStep(s.id)}
-                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+      <div className="space-y-5">
+        <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1.5 shadow-card">
+          {STEPS.map((s, i) => {
+            const locked =
+              (s.id === "details" && !detailsUnlocked) ||
+              (s.id === "documents" && !documentsUnlocked);
+            const active = step === s.id;
+            const done =
+              (s.id === "identify" && detailsUnlocked) ||
+              (s.id === "details" && documentsUnlocked) ||
+              (s.id === "documents" && submitted);
+            return (
+              <button
+                key={s.id}
+                disabled={locked}
+                onClick={() => !locked && setStep(s.id)}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  active
+                    ? "bg-ink text-ink-foreground"
+                    : locked
+                      ? "cursor-not-allowed text-muted-foreground/50"
+                      : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <span
+                  className={`grid size-5 shrink-0 place-items-center rounded-full text-[11px] ${
                     active
-                      ? "bg-ink text-ink-foreground"
-                      : locked
-                        ? "cursor-not-allowed text-muted-foreground/50"
-                        : "text-muted-foreground hover:bg-muted"
+                      ? "bg-ink-foreground/20"
+                      : done
+                        ? "bg-primary/15 text-primary"
+                        : "bg-border/70"
                   }`}
                 >
-                  <span
-                    className={`grid size-5 shrink-0 place-items-center rounded-full text-[11px] ${
-                      active
-                        ? "bg-ink-foreground/20"
-                        : done
-                          ? "bg-primary/15 text-primary"
-                          : "bg-border/70"
-                    }`}
-                  >
-                    {locked ? (
-                      <Lock className="size-2.5" />
-                    ) : done ? (
-                      <Check className="size-3" />
-                    ) : (
-                      i + 1
-                    )}
-                  </span>
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
+                  {locked ? (
+                    <Lock className="size-2.5" />
+                  ) : done ? (
+                    <Check className="size-3" />
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+
+      <div
+        className={`grid gap-5 ${
+          docMode === "split" || benefitMode === "split" || historyMode === "split"
+            ? "xl:grid-cols-[1fr_460px]"
+            : "grid-cols-1"
+        }`}
+      >
+        <div className="min-w-0 space-y-5">
 
           {/* ---- step 1: identification ---- */}
           {step === "identify" && (
@@ -813,33 +842,13 @@ function NewClaim() {
                       </span>
                     )}
                   </label>
-
-                  {reviewerNameRequired && (
-                    <Field
-                      label="Reviewer name"
-                      value={reviewerName}
-                      required
-                      onChange={setReviewerName}
-                      placeholder="Name of the person rejecting this claim"
-                      hint="Required when the status is Reject."
-                    />
-                  )}
                 </div>
-                {attemptedSubmit &&
-                  reviewerNameRequired &&
-                  !reviewerNameValid && (
-                    <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
-                      <AlertTriangle className="size-3" /> Please enter your
-                      name to reject this claim.
-                    </span>
-                  )}
               </div>
 
               {submitted && (
                 <p className="mt-5 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
                   <Check className="size-3.5" /> Claim saved for {patient.name}{" "}
                   — status: {status || "—"}
-                  {reviewerName ? ` — reviewed by ${reviewerName}` : ""}
                 </p>
               )}
 
@@ -864,7 +873,9 @@ function NewClaim() {
 
         <aside
           className={
-            docMode === "split" || benefitMode === "split"
+            docMode === "split" ||
+            benefitMode === "split" ||
+            historyMode === "split"
               ? "xl:sticky xl:top-20 xl:h-[calc(100vh-6rem)]"
               : "contents"
           }
@@ -873,14 +884,20 @@ function NewClaim() {
             mode={docMode}
             onModeChange={(mode) => {
               setDocMode(mode);
-              if (mode === "split") setBenefitMode("closed");
+              if (mode === "split") {
+                setBenefitMode("closed");
+                setHistoryMode("closed");
+              }
             }}
           />
           <BenefitsPanel
             mode={benefitMode}
             onModeChange={(mode) => {
               setBenefitMode(mode);
-              if (mode === "split") setDocMode("closed");
+              if (mode === "split") {
+                setDocMode("closed");
+                setHistoryMode("closed");
+              }
             }}
             causeOfLoss={causeOfLoss}
             selectedBenefit={selectedBenefit}
@@ -888,7 +905,19 @@ function NewClaim() {
             underwritingTerms={policy?.underwritingTerms}
             selectedMember={patient}
           />
+          <ClientHistoryPanel
+            mode={historyMode}
+            onModeChange={(mode) => {
+              setHistoryMode(mode);
+              if (mode === "split") {
+                setDocMode("closed");
+                setBenefitMode("closed");
+              }
+            }}
+            history={claimHistory}
+          />
         </aside>
+      </div>
       </div>
       {approvalLetterOpen && (
         <ApprovalLetterModal onClose={() => setApprovalLetterOpen(false)} />

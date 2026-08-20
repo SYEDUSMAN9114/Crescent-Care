@@ -436,7 +436,7 @@ function NewClaim() {
       }
     >
       <div className="space-y-5">
-        <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1.5 shadow-card">
+        <div className="sticky top-[125px] z-30 flex items-center gap-1 rounded-2xl border border-border bg-surface p-1.5 shadow-card">
           {STEPS.map((s, i) => {
             const locked =
               (s.id === "details" && !detailsUnlocked) ||
@@ -876,7 +876,7 @@ function NewClaim() {
             docMode === "split" ||
             benefitMode === "split" ||
             historyMode === "split"
-              ? "xl:sticky xl:top-20 xl:h-[calc(100vh-6rem)]"
+              ? "xl:sticky xl:top-[180px] xl:h-[calc(100vh-12.5rem)]"
               : "contents"
           }
         >

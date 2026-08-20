@@ -2,16 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   Filter,
-  Eye,
-  RotateCcw,
-  FileText,
-  Printer,
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
   Download,
+  MoreVertical,
+  ChevronDown,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { ApprovalLetterModal } from "@/components/ApprovalLetterModal";
 import { claims, money, type Claim } from "@/lib/claims-data";
 
 export const Route = createFileRoute("/claims/list")({
@@ -52,6 +51,9 @@ function ClaimsListPage() {
   const [filter, setFilter] = useState<(typeof filters)[number]>("All");
   const [query, setQuery] = useState("");
   const [active, setActive] = useState<string | null>(null);
+  const [menuKey, setMenuKey] = useState<string | null>(null);
+  const [revisionKey, setRevisionKey] = useState<string | null>(null);
+  const [approvalClaim, setApprovalClaim] = useState<Claim | null>(null);
 
   const rows = useMemo(
     () =>
@@ -183,21 +185,69 @@ function ClaimsListPage() {
                       {money(c.lossDeductable)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                        {[
-                          { icon: Eye, label: "View" },
-                          { icon: RotateCcw, label: "Revise" },
-                          { icon: FileText, label: "CMR" },
-                          { icon: Printer, label: "Print" },
-                        ].map((a) => (
-                          <button
-                            key={a.label}
-                            title={a.label}
-                            className="grid size-8 place-items-center rounded-lg border border-border bg-surface text-muted-foreground hover:border-primary/40 hover:text-primary"
-                          >
-                            <a.icon className="size-3.5" strokeWidth={1.75} />
-                          </button>
-                        ))}
+                      <div
+                        className="relative flex items-center justify-end"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          title="Claim actions"
+                          aria-label={`Actions for ${c.intimationNo} entry ${c.entryNo}`}
+                          onClick={() => {
+                            setMenuKey(menuKey === key ? null : key);
+                            setRevisionKey(null);
+                          }}
+                          className="grid size-8 place-items-center rounded-lg border border-border bg-surface text-muted-foreground opacity-0 transition-opacity hover:border-primary/40 hover:text-primary group-hover:opacity-100 focus:opacity-100"
+                        >
+                          <MoreVertical className="size-4" strokeWidth={1.75} />
+                        </button>
+
+                        {menuKey === key && (
+                          <div className="absolute right-0 top-10 z-40 w-52 rounded-xl border border-border bg-surface p-1.5 shadow-2xl">
+                            <button
+                              onClick={() => setApprovalClaim(c)}
+                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-medium hover:bg-muted"
+                            >
+                              Approval Letter
+                            </button>
+
+                            <div className="relative">
+                              <button
+                                onClick={() =>
+                                  setRevisionKey(
+                                    revisionKey === key ? null : key,
+                                  )
+                                }
+                                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium hover:bg-muted"
+                              >
+                                Revision
+                                <ChevronDown className="size-3.5" />
+                              </button>
+
+                              {revisionKey === key && (
+                                <div className="ml-2 mt-1 rounded-lg border border-border bg-surface-2 p-1">
+                                  <button
+                                    onClick={() => {
+                                      window.location.href = `/claims/new?revision=${encodeURIComponent(c.intimationNo)}&entry=${c.entryNo}&mode=limit`;
+                                    }}
+                                    className="block w-full rounded-md px-3 py-2 text-left text-xs hover:bg-muted"
+                                  >
+                                    Limit Enhancement
+                                  </button>
+                                  <button
+                                    className="block w-full rounded-md px-3 py-2 text-left text-xs hover:bg-muted"
+                                  >
+                                    Bill Enhancement
+                                  </button>
+                                  <button
+                                    className="block w-full rounded-md px-3 py-2 text-left text-xs hover:bg-muted"
+                                  >
+                                    Reimbursement Revision
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -254,9 +304,15 @@ function ClaimsListPage() {
 
       <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
         <ArrowUpRight className="size-3.5" />
-        Click any row to focus it, then use the inline actions to view, revise,
-        generate CMR or print.
+        Use the three-dot menu on any claim for revisions or its approval letter.
       </div>
+
+      {approvalClaim && (
+        <ApprovalLetterModal
+          claim={approvalClaim}
+          onClose={() => setApprovalClaim(null)}
+        />
+      )}
     </AppShell>
   );
 }

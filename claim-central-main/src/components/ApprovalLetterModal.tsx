@@ -14,8 +14,15 @@ import {
   formatPkr,
   type ApprovalLetterCase,
 } from "@/lib/approval-letter-data";
+import type { Claim } from "@/lib/claims-data";
 
-export function ApprovalLetterModal({ onClose }: { onClose: () => void }) {
+export function ApprovalLetterModal({
+  onClose,
+  claim,
+}: {
+  onClose: () => void;
+  claim?: Claim;
+}) {
   const [approval, setApproval] = useState<ApprovalLetterCase | null>(null);
   const [sendState, setSendState] = useState<
     "idle" | "confirm" | "sending" | "sent"
@@ -23,8 +30,33 @@ export function ApprovalLetterModal({ onClose }: { onClose: () => void }) {
   const [sentAt, setSentAt] = useState<string | null>(null);
 
   useEffect(() => {
-    void fetchApprovedCaseForLetter().then(setApproval);
-  }, []);
+    void fetchApprovedCaseForLetter().then((baseCase) => {
+      if (!claim) {
+        setApproval(baseCase);
+        return;
+      }
+
+      const current = claim.lossPayable;
+      setApproval({
+        ...baseCase,
+        claimNo: claim.intimationNo,
+        revisionNo: claim.entryNo,
+        approvalNo: `CCA-${claim.intimationNo.slice(-4)}-R${String(
+          claim.entryNo,
+        ).padStart(2, "0")}`,
+        issueDate: claim.revisionDate ?? claim.intimationDate,
+        policyNo: claim.policyNo,
+        participantName: claim.claimant,
+        diagnosis: claim.causeOfLoss,
+        treatment: claim.causeOfLoss,
+        benefit: claim.causeOfLoss,
+        approvedHospitalizationLimit: current,
+        previousApprovedAmount: claim.entryNo > 1 ? current : null,
+        additionalEnhancementAmount: claim.entryNo > 1 ? 0 : null,
+        currentTotalApprovedAmount: current,
+      });
+    });
+  }, [claim]);
 
   if (!approval) {
     return (

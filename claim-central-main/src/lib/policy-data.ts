@@ -29,6 +29,23 @@ export interface policy {
   dependent: dependent[];
 }
 
+export interface ClaimHistoryItem {
+  id: string;
+  claimNo: string;
+  entryNo: string;
+  cardOrCnic: string;
+  patientName: string;
+  relation: string;
+  hospital: string;
+  causeOfLoss: string;
+  benefit: string;
+  status: "Approved" | "Rejected" | "Requirement Needed" | "Paid";
+  claimedAmount: string;
+  approvedAmount: string;
+  intimationDate: string;
+  settledDate?: string;
+}
+
 export const causeOfLossOptions = [
   "OPD",
   "IPD",
@@ -165,6 +182,70 @@ export const policyDatabase: policy[] = [
   },
 ];
 
+export const claimHistoryDatabase: ClaimHistoryItem[] = [
+  {
+    id: "H-000046-1",
+    claimNo: "CLM-240118",
+    entryNo: "1",
+    cardOrCnic: "000046",
+    patientName: "Atifa Ajmal",
+    relation: "Spouse",
+    hospital: "South City Hospital (KHI)",
+    causeOfLoss: "Maternity",
+    benefit: "C-Section",
+    status: "Paid",
+    claimedAmount: "85,000",
+    approvedAmount: "80,000",
+    intimationDate: "18/01/2026",
+    settledDate: "25/01/2026",
+  },
+  {
+    id: "H-000046-2",
+    claimNo: "CLM-231004",
+    entryNo: "1",
+    cardOrCnic: "000046",
+    patientName: "Zara Ajmal",
+    relation: "Daughter",
+    hospital: "Liaquat National Hospital (KHI)",
+    causeOfLoss: "Emergency",
+    benefit: "Emergency Room",
+    status: "Approved",
+    claimedAmount: "18,500",
+    approvedAmount: "18,500",
+    intimationDate: "04/10/2025",
+  },
+  {
+    id: "H-CNIC-1",
+    claimNo: "CLM-260211",
+    entryNo: "2",
+    cardOrCnic: "42101-1234567-9",
+    patientName: "Sana Tariq",
+    relation: "Self",
+    hospital: "Shifa International Hospital (ISB)",
+    causeOfLoss: "OPD",
+    benefit: "Diagnostics",
+    status: "Requirement Needed",
+    claimedAmount: "12,800",
+    approvedAmount: "0",
+    intimationDate: "11/02/2026",
+  },
+  {
+    id: "H-CNIC-2",
+    claimNo: "CLM-251129",
+    entryNo: "1",
+    cardOrCnic: "42101-1234567-9",
+    patientName: "Ibrahim Tariq",
+    relation: "Son",
+    hospital: "Doctors Hospital (LHE)",
+    causeOfLoss: "IPD",
+    benefit: "Room & Board",
+    status: "Rejected",
+    claimedAmount: "44,000",
+    approvedAmount: "0",
+    intimationDate: "29/11/2025",
+  },
+];
+
 export function lookupPolicy(cardOrCnic: string): policy | null {
   const q = cardOrCnic.trim().toLowerCase();
   if (!q) return null;
@@ -175,6 +256,16 @@ export function lookupPolicy(cardOrCnic: string): policy | null {
         p.cardOrCnic.toLowerCase().replace(/-/g, "") === q.replace(/-/g, ""),
     ) ?? null
   );
+}
+
+export function lookupClaimHistory(cardOrCnic: string): ClaimHistoryItem[] {
+  const q = cardOrCnic.trim().toLowerCase();
+  if (!q) return [];
+  const normalized = q.replace(/-/g, "");
+  return claimHistoryDatabase.filter((claim) => {
+    const value = claim.cardOrCnic.toLowerCase();
+    return value === q || value.replace(/-/g, "") === normalized;
+  });
 }
 
 export const hospitalList = [

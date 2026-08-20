@@ -1,4 +1,9 @@
-export type ClaimStatus = "Revised" | "Full & Final" | "Posted" | "Draft";
+export type ClaimStatus =
+  | "Revised"
+  | "Full & Final"
+  | "Posted"
+  | "Draft"
+  | "Requirement Needed";
 
 export interface Claim {
   intimationNo: string;

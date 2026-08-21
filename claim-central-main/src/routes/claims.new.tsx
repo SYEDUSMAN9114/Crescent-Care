@@ -873,7 +873,7 @@ function NewClaim() {
                   label="Status"
                   required
                   value={status}
-                  disabled={isRevision}
+                  disabled={false}
                   onChange={setStatus}
                   options={claimStatusOptions.map((s) => ({
                     value: s,

@@ -26,6 +26,8 @@ import {
 import { ApprovalLetterModal } from "@/components/ApprovalLetterModal";
 import {
   lookupPolicy,
+  lookupPoliciesByClientName,
+  lookupPolicyByClientAndIdentity,
   lookupClaimHistory,
   hospitalList,
   claimStatusOptions,
@@ -222,13 +224,31 @@ const STEPS: { id: StepId; label: string }[] = [
   { id: "documents", label: "Documents & remarks" },
 ];
 
+function toIsoDate(value: string) {
+  const [day, month, year] = value.split("/").map(Number);
+  if (!day || !month || !year) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function calculateDischargeDate(admissionDate: string, stayDays: string) {
+  const days = Number(stayDays);
+  if (!admissionDate || !Number.isFinite(days) || days <= 0) return "";
+  const date = new Date(`${admissionDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function NewClaim() {
   const [docMode, setDocMode] = useState<DocMode>("closed");
   const [benefitMode, setBenefitMode] = useState<BenefitMode>("closed");
   const [historyMode, setHistoryMode] = useState<ClientHistoryMode>("closed");
   const [approvalLetterOpen, setApprovalLetterOpen] = useState(false);
-  const { revision, entry: revisionSourceEntry, mode: revisionMode } =
-    Route.useSearch();
+  const {
+    revision,
+    entry: revisionSourceEntry,
+    mode: revisionMode,
+  } = Route.useSearch();
   const isRevision = Boolean(revision);
   const [secondaryDiagnosis, setSecondaryDiagnosis] = useState("");
   const [additionalApprovedAmount, setAdditionalApprovedAmount] = useState("");
@@ -260,9 +280,14 @@ function NewClaim() {
     isRevision ? String((revisionSourceEntry ?? 1) + 1) : "1",
   );
   const [idMode, setIdMode] = useState<IdMode>("card");
+  const [clientNameSearch, setClientNameSearch] = useState("");
   const [cardOrCnic, setCardOrCnic] = useState("");
   const [fetchState, setFetchState] = useState<"idle" | "loading" | "error">(
     "idle",
+  );
+  const clientMatches = useMemo(
+    () => lookupPoliciesByClientName(clientNameSearch),
+    [clientNameSearch],
   );
 
   // step 2 — policy & member (+ claim details, merged)
@@ -279,6 +304,18 @@ function NewClaim() {
   const [diagnosis, setDiagnosis] = useState("");
   const [treatment, setTreatment] = useState("");
   const [stay, setStay] = useState("");
+  const [revisionDate, setRevisionDate] = useState("");
+  const [intimationDate, setIntimationDate] = useState("");
+  const [dateOfLoss, setDateOfLoss] = useState("");
+  const [admissionDate, setAdmissionDate] = useState("");
+  const dischargeDate = useMemo(
+    () => calculateDischargeDate(admissionDate, stay),
+    [admissionDate, stay],
+  );
+  const [hospitalMrNo, setHospitalMrNo] = useState("");
+  const [hospitalBillNo, setHospitalBillNo] = useState("");
+  const [partnerClaimNo, setPartnerClaimNo] = useState("");
+  const [previousClaimNo, setPreviousClaimNo] = useState("");
   const [reqAmount, setReqAmount] = useState("");
   const [approveAmount, setApproveAmount] = useState("");
   const [hospital, setHospital] = useState("");
@@ -298,11 +335,14 @@ function NewClaim() {
     if (!isRevision || !revisionSource) return;
 
     const matchedPolicy = lookupPolicy(
-      revisionSource.policyNo === "PIHGCDP00011/25" ? "000046" : "42101-1234567-9",
+      revisionSource.policyNo === "PIHGCDP00011/25"
+        ? "000046"
+        : "42101-1234567-9",
     );
     if (!matchedPolicy) return;
 
     setPolicy(matchedPolicy);
+    setClientNameSearch(matchedPolicy.clientName);
     setCardOrCnic(matchedPolicy.cardOrCnic);
     setIdMode(matchedPolicy.cardOrCnic.includes("-") ? "cnic" : "card");
     setDept(matchedPolicy.deptList[0] ?? "");
@@ -318,6 +358,10 @@ function NewClaim() {
     setDiagnosis(revisionSource.causeOfLoss);
     setTreatment(revisionSource.causeOfLoss);
     setStay("2");
+    setRevisionDate(toIsoDate(revisionSource.revisionDate ?? ""));
+    setIntimationDate(toIsoDate(revisionSource.intimationDate));
+    setDateOfLoss(toIsoDate(revisionSource.admitDate));
+    setAdmissionDate(toIsoDate(revisionSource.admitDate));
     setReqAmount(String(revisionSource.lossPayable));
     setApproveAmount(String(revisionSource.lossPayable));
     setHospital("South City Hospital (KHI)");
@@ -335,6 +379,7 @@ function NewClaim() {
   const handleIdModeChange = (mode: IdMode) => {
     setIdMode(mode);
     setCardOrCnic("");
+    setClientNameSearch("");
     setFetchState("idle");
     setPolicy(null);
     setHistoryMode("closed");
@@ -351,7 +396,10 @@ function NewClaim() {
     setFetchState("loading");
     // simulate a lookup call against the policy master
     setTimeout(() => {
-      const record = lookupPolicy(cardOrCnic);
+      const record = lookupPolicyByClientAndIdentity(
+        clientNameSearch,
+        cardOrCnic,
+      );
       if (!record) {
         setFetchState("error");
         setPolicy(null);
@@ -360,6 +408,7 @@ function NewClaim() {
       }
       setFetchState("idle");
       setPolicy(record);
+      setClientNameSearch(record.clientName);
       setDept(record.deptList[0] ?? "");
       setPatientId("");
       setCauseOfLoss("");
@@ -389,6 +438,9 @@ function NewClaim() {
     diagnosis,
     treatment,
     stay,
+    intimationDate,
+    dateOfLoss,
+    admissionDate,
     hospital,
     status,
   ];
@@ -540,525 +592,614 @@ function NewClaim() {
           })}
         </div>
 
-      <div
-        className={`grid gap-5 ${
-          docMode === "split" || benefitMode === "split" || historyMode === "split"
-            ? "xl:grid-cols-[1fr_460px]"
-            : "grid-cols-1"
-        }`}
-      >
-        <div className="min-w-0 space-y-5">
-
-          {/* ---- step 1: identification ---- */}
-          {step === "identify" && (
-            <Section
-              step="1"
-              title="Client Details"
-              desc="Enter the claim reference, then look up the member by card number or CNIC."
-            >
-              <div className="flex flex-wrap items-end gap-6">
-                <div className="w-32">
-                  <Field label="Claim No." value={claimNo} readOnly />
-                </div>
-                <div className="w-32">
-                  <Field label="Entry No." value={entryNo} readOnly />
-                </div>
-
-                <div>
-                  <div className="relative mt-1.5 inline-flex rounded-xl border border-border bg-surface-2 p-1">
-                    <div
-                      className="absolute inset-y-1 w-15 rounded-lg bg-ink transition-transform duration-200 ease-out"
-                      style={{
-                        transform:
-                          idMode === "cnic"
-                            ? "translateX(100%)"
-                            : "translateX(0%)",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleIdModeChange("card")}
-                      className={`relative z-10 w-15 rounded-lg py-2 text-xs font-semibold transition-colors ${
-                        idMode === "card"
-                          ? "text-ink-foreground"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      Card No.
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleIdModeChange("cnic")}
-                      className={`relative z-10 w-15 rounded-lg py-2 text-xs font-semibold transition-colors ${
-                        idMode === "cnic"
-                          ? "text-ink-foreground"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      CNIC
-                    </button>
-                  </div>
-                </div>
-
-                <div className="min-w-[240px] flex-1 max-w-md">
-                  <span className="label-cap flex items-center gap-1">
-                    {idMode === "card" ? "Card No." : "CNIC No."}
-                    <span className="text-destructive">*</span>
-                  </span>
-                  <div className="mt-0.5 flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={cardOrCnic}
-                      placeholder={
-                        idMode === "card"
-                          ? "e.g. 000046"
-                          : "e.g. 42101-1234567-9"
-                      }
-                      onChange={(e) => {
-                        setCardOrCnic(e.target.value);
-                        setFetchState("idle");
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && handleFetch()}
-                      className="field-underline w-full text-sm font-medium"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleFetch}
-                      disabled={fetchState === "loading"}
-                      title="Fetch policy"
-                      className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground shadow-card transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {fetchState === "loading" ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <ArrowRight className="size-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <span className="mt-2 block text-[11px] text-muted-foreground">
-                We'll look up policy, employee and family details automatically.
-              </span>
-
-              {fetchState === "error" && (
-                <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive">
-                  No policy found for that{" "}
-                  {idMode === "card" ? "card number" : "CNIC"}. Please check and
-                  try again.
-                </p>
-              )}
-
-              {policy && (
-                <div className="mt-6 border-t border-border pt-5">
-                  <div className="mb-3 flex items-center gap-2">
-                    <ShieldCheck className="size-4 text-primary" />
-                    <h3 className="text-sm font-semibold">Policy matched</h3>
-                  </div>
-                  <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-                    <Field label="Client ID" value={policy.clientId} readOnly />
-                    <Field
-                      label="Client name"
-                      value={policy.clientName}
-                      readOnly
-                      wide
-                    />
-                    <Field
-                      label="Policy no."
-                      value={policy.policyNo}
-                      readOnly
-                    />
-                    <Field
-                      label="Policy period"
-                      value={policy.policyPeriod}
-                      readOnly
-                      wide
-                    />
-                    <Field
-                      label="Employee info"
-                      value={`${policy.employeeInfo.empId} — ${policy.employeeInfo.empName} (${policy.employeeInfo.designation})`}
-                      readOnly
-                      wide
-                    />
-                  </div>
-                  <div className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                    <SelectField
-                      label="Member"
-                      required
-                      value={patientId}
-                      onChange={handlePatientSelect}
-                      placeholder="Choose family member..."
-                      options={policy.dependent.map((item) => ({
-                        value: item.id,
-                        label: `${item.name} - ${item.relation}`,
-                      }))}
-                    />
-                    <SelectField
-                      label="Cause of loss"
-                      required
-                      value={causeOfLoss}
-                      onChange={handleCauseSelect}
-                      placeholder="Choose cause of loss..."
-                      options={causeOfLossOptions.map((cause) => ({
-                        value: cause,
-                        label: cause,
-                      }))}
-                    />
-                    <SelectField
-                      label="Benefit"
-                      required
-                      value={selectedBenefit}
-                      onChange={setSelectedBenefit}
-                      disabled={!causeOfLoss}
-                      placeholder="Choose benefit..."
-                      options={
-                        causeOfLoss
-                          ? benefitsByCause[
-                              causeOfLoss as (typeof causeOfLossOptions)[number]
-                            ].map((benefit) => ({
-                              value: benefit,
-                              label: benefit,
-                            }))
-                          : []
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-5 flex justify-end">
-                <button
-                  onClick={goToDetails}
-                  disabled={!patient || !causeOfLoss || !selectedBenefit}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Next: Claim details <ChevronRight className="size-4" />
-                </button>
-              </div>
-            </Section>
-          )}
-
-          {/* ---- step 3: claim details ---- */}
-          {step === "details" && policy && patient && (
-            <Section
-              step="2"
-              title="Claim details"
-              desc="Diagnosis, treatment, amounts and the decision on this claim."
-            >
-              <div className="mt-6 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="sm:col-span-2">
-                  <div className="flex items-end gap-2">
-                    <div className="min-w-0 flex-1">
-                      <Field
-                        label="Primary diagnosis"
-                        value={diagnosis}
-                        required
-                        readOnly={isRevision}
-                        onChange={setDiagnosis}
-                        placeholder="e.g. LSCS"
-                        hint="ICD code where applicable"
-                      />
-                    </div>
-                    {isRevision && (
-                      <button
-                        type="button"
-                        onClick={() => setShowSecondaryDiagnosis((v) => !v)}
-                        className="mb-1 grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-lg hover:bg-muted"
-                        title="Add secondary diagnosis"
-                      >
-                        +
-                      </button>
-                    )}
-                  </div>
-                  {isRevision && showSecondaryDiagnosis && (
-                    <Field
-                      label="Secondary diagnosis"
-                      value={secondaryDiagnosis}
-                      onChange={setSecondaryDiagnosis}
-                      placeholder="Enter secondary diagnosis"
-                    />
-                  )}
-                </div>
-                <Field
-                  label="Treatment"
-                  value={treatment}
-                  required
-                  readOnly={isRevision}
-                  onChange={setTreatment}
-                  placeholder="e.g. Surgical delivery"
-                />
-                <div>
-                  <div className="flex items-end gap-2">
-                    <div className="min-w-0 flex-1">
-                      <Field
-                        label="Stay (days)"
-                        value={stay}
-                        required
-                        type="number"
-                        readOnly={isRevision}
-                        onChange={setStay}
-                        placeholder="e.g. 2"
-                      />
-                    </div>
-                    {isRevision && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAdditionalStay((v) => !v)}
-                        className="mb-1 grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-lg hover:bg-muted"
-                        title="Add stay days"
-                      >
-                        +
-                      </button>
-                    )}
-                  </div>
-                  {isRevision && showAdditionalStay && (
-                    <Field
-                      label="Additional stay (days)"
-                      value={additionalStay}
-                      type="number"
-                      onChange={setAdditionalStay}
-                      placeholder="Add days"
-                    />
-                  )}
-                </div>
-                <Field
-                  label="Requested amount"
-                  value={reqAmount}
-                  type="number"
-                  onChange={setReqAmount}
-                  placeholder="0"
-                />
-                <div>
-                  <div className="flex items-end gap-2">
-                    <div className="min-w-0 flex-1">
-                      <Field
-                        label="Approved amount"
-                        value={approveAmount}
-                        type="number"
-                        readOnly={isRevision}
-                        onChange={setApproveAmount}
-                        placeholder="0"
-                      />
-                    </div>
-                    {isRevision && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAdditionalApproved((v) => !v)}
-                        className="mb-1 grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-lg hover:bg-muted"
-                        title="Add approved amount"
-                      >
-                        +
-                      </button>
-                    )}
-                  </div>
-                  {isRevision && showAdditionalApproved && (
-                    <Field
-                      label="Additional approved amount"
-                      value={additionalApprovedAmount}
-                      type="number"
-                      onChange={setAdditionalApprovedAmount}
-                      placeholder="Add amount"
-                    />
-                  )}
-                </div>
-                <SelectField
-                  label="Hospital"
-                  required
-                  value={hospital}
-                  disabled={isRevision}
-                  onChange={setHospital}
-                  options={hospitalList.map((h) => ({ value: h, label: h }))}
-                />
-                <SelectField
-                  label="Status"
-                  required
-                  value={status}
-                  disabled={false}
-                  onChange={setStatus}
-                  options={claimStatusOptions.map((s) => ({
-                    value: s,
-                    label: s,
-                  }))}
-                />
-              </div>
-
-              <div className="mt-5 flex items-center justify-between">
-                <button
-                  onClick={() => setStep("identify")}
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
-                >
-                  <ChevronLeft className="size-4" /> Back
-                </button>
-                <button
-                  onClick={goToDocuments}
-                  disabled={!coreFieldsComplete}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Next: Documents &amp; remarks{" "}
-                  <ChevronRight className="size-4" />
-                </button>
-              </div>
-            </Section>
-          )}
-
-          {/* ---- step 4: documents & remarks ---- */}
-          {step === "documents" && policy && patient && (
-            <Section
-              step="3"
-              title="Documents & remarks"
-              desc="Attach whatever's on file, flag anything still needed, then save."
-            >
-              {/* ---- remarks & requirement ---- */}
-              <div className="mt-6 border-t border-border pt-5">
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold">
-                    Remarks & requirement
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Tick anything still needed from the claimant, e.g. approve
-                    the case but ask for an additional lab report.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-                  {documentOptions.map((doc) => (
-                    <label
-                      key={doc}
-                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
-                        requestedDocs.includes(doc)
-                          ? "border-primary/40 bg-primary/10 text-primary"
-                          : "border-border bg-surface hover:bg-muted"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={requestedDocs.includes(doc)}
-                        onChange={() => toggleRequestedDoc(doc)}
-                        disabled={isRevision}
-                        className="size-3.5 accent-primary"
-                      />
-                      {doc}
-                    </label>
-                  ))}
-                </div>
-
-                <Field
-                  label="Other document / requirement"
-                  value={otherDocNote}
-                  readOnly={isRevision}
-                  onChange={setOtherDocNote}
-                  placeholder="e.g. Attending physician's report"
-                  wide
-                />
-
-                <div className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2">
-                  <label className="block sm:col-span-2">
-                    <span className="label-cap flex items-center gap-1">
-                      Remarks
-                      {remarksRequired && (
-                        <span className="text-destructive">*</span>
-                      )}
-                    </span>
-                    <textarea
-                      value={remarks}
-                      readOnly={isRevision}
-                      onChange={(e) => setRemarks(e.target.value)}
-                      rows={3}
-                      placeholder={
-                        status === "Approve"
-                          ? "Optional — add any notes on this approval"
-                          : "Explain what's missing or why the case was rejected"
-                      }
-                      className="field-underline mt-0.5 w-full resize-none text-sm font-medium"
-                    />
-                    <span className="mt-1 block text-[11px] text-muted-foreground">
-                      {status === "Approve"
-                        ? "Not required when the case is approved."
-                        : "Required when the status is Reject or Requirement Needed."}
-                    </span>
-                    {attemptedSubmit && remarksRequired && !remarksValid && (
-                      <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
-                        <AlertTriangle className="size-3" /> Please add remarks
-                        before submitting.
-                      </span>
-                    )}
-                  </label>
-                </div>
-              </div>
-
-              {submitted && (
-                <p className="mt-5 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
-                  <Check className="size-3.5" /> Claim saved for {patient.name}{" "}
-                  — status: {status || "—"}
-                </p>
-              )}
-
-              <div className="mt-5 flex items-center justify-between">
-                <button
-                  onClick={() => setStep("details")}
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
-                >
-                  <ChevronLeft className="size-4" /> Back
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={!coreFieldsComplete}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Save className="size-4" /> Save &amp; submit
-                </button>
-              </div>
-            </Section>
-          )}
-        </div>
-
-        <aside
-          className={
+        <div
+          className={`grid gap-5 ${
             docMode === "split" ||
             benefitMode === "split" ||
             historyMode === "split"
-              ? "xl:sticky xl:top-[180px] xl:h-[calc(100vh-12.5rem)]"
-              : "contents"
-          }
+              ? "xl:grid-cols-[1fr_460px]"
+              : "grid-cols-1"
+          }`}
         >
-          <DocumentsPanel
-            mode={docMode}
-            onModeChange={(mode) => {
-              setDocMode(mode);
-              if (mode === "split") {
-                setBenefitMode("closed");
-                setHistoryMode("closed");
-              }
-            }}
-          />
-          <BenefitsPanel
-            mode={benefitMode}
-            onModeChange={(mode) => {
-              setBenefitMode(mode);
-              if (mode === "split") {
-                setDocMode("closed");
-                setHistoryMode("closed");
-              }
-            }}
-            causeOfLoss={causeOfLoss}
-            selectedBenefit={selectedBenefit}
-            memberName={patient?.name}
-            underwritingTerms={policy?.underwritingTerms}
-            selectedMember={patient}
-          />
-          <ClientHistoryPanel
-            mode={historyMode}
-            onModeChange={(mode) => {
-              setHistoryMode(mode);
-              if (mode === "split") {
-                setDocMode("closed");
-                setBenefitMode("closed");
-              }
-            }}
-            history={claimHistory}
-          />
-        </aside>
-      </div>
+          <div className="min-w-0 space-y-5">
+            {/* ---- step 1: identification ---- */}
+            {step === "identify" && (
+              <Section
+                step="1"
+                title="Client Details"
+                desc="Enter the claim reference, then look up the member by card number or CNIC."
+              >
+                <div className="flex flex-wrap items-end gap-6">
+                  <div className="w-32">
+                    <Field label="Claim No." value={claimNo} readOnly />
+                  </div>
+                  <div className="w-32">
+                    <Field label="Entry No." value={entryNo} readOnly />
+                  </div>
+
+                  <div>
+                    <div className="relative mt-1.5 inline-flex rounded-xl border border-border bg-surface-2 p-1">
+                      <div
+                        className="absolute inset-y-1 w-15 rounded-lg bg-ink transition-transform duration-200 ease-out"
+                        style={{
+                          transform:
+                            idMode === "cnic"
+                              ? "translateX(100%)"
+                              : "translateX(0%)",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleIdModeChange("card")}
+                        className={`relative z-10 w-15 rounded-lg py-2 text-xs font-semibold transition-colors ${
+                          idMode === "card"
+                            ? "text-ink-foreground"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        Card No.
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleIdModeChange("cnic")}
+                        className={`relative z-10 w-15 rounded-lg py-2 text-xs font-semibold transition-colors ${
+                          idMode === "cnic"
+                            ? "text-ink-foreground"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        CNIC
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="min-w-[240px] flex-1 max-w-sm">
+                    <span className="label-cap">Client name</span>
+                    <input
+                      type="text"
+                      value={clientNameSearch}
+                      list="client-name-options"
+                      placeholder="Filter by client name"
+                      onChange={(e) => {
+                        setClientNameSearch(e.target.value);
+                        setFetchState("idle");
+                      }}
+                      className="field-underline mt-0.5 w-full text-sm font-medium"
+                    />
+                    <datalist id="client-name-options">
+                      {clientMatches.map((item) => (
+                        <option key={item.clientId} value={item.clientName} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <div className="min-w-[240px] flex-1 max-w-sm">
+                    <span className="label-cap flex items-center gap-1">
+                      {idMode === "card" ? "Card No." : "CNIC No."}
+                      <span className="text-destructive">*</span>
+                    </span>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={cardOrCnic}
+                        placeholder={
+                          idMode === "card"
+                            ? "e.g. 000046"
+                            : "e.g. 42101-1234567-9"
+                        }
+                        onChange={(e) => {
+                          setCardOrCnic(e.target.value);
+                          setFetchState("idle");
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && handleFetch()}
+                        className="field-underline w-full text-sm font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleFetch}
+                        disabled={fetchState === "loading"}
+                        title="Fetch policy"
+                        className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground shadow-card transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {fetchState === "loading" ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <ArrowRight className="size-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <span className="mt-2 block text-[11px] text-muted-foreground">
+                  We'll look up policy, employee and family details
+                  automatically.
+                </span>
+
+                {fetchState === "error" && (
+                  <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive">
+                    No policy found for that client and{" "}
+                    {idMode === "card" ? "card number" : "CNIC"}. Please check
+                    and try again.
+                  </p>
+                )}
+
+                {policy && (
+                  <div className="mt-6 border-t border-border pt-5">
+                    <div className="mb-3 flex items-center gap-2">
+                      <ShieldCheck className="size-4 text-primary" />
+                      <h3 className="text-sm font-semibold">Policy matched</h3>
+                    </div>
+                    <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+                      <Field
+                        label="Client name"
+                        value={policy.clientName}
+                        readOnly
+                      />
+                      <Field
+                        label="Client ID"
+                        value={policy.clientId}
+                        readOnly
+                      />
+                      <Field
+                        label="Policy no."
+                        value={policy.policyNo}
+                        readOnly
+                      />
+                      <Field
+                        label="Policy period"
+                        value={policy.policyPeriod}
+                        readOnly
+                      />
+                    </div>
+                    <div className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                      <Field
+                        label="Employee identity code"
+                        value={policy.employeeInfo.empId}
+                        readOnly
+                      />
+                      <Field
+                        label="Employee name"
+                        value={policy.employeeInfo.empName}
+                        readOnly
+                      />
+                      <SelectField
+                        label="Member"
+                        required
+                        value={patientId}
+                        onChange={handlePatientSelect}
+                        placeholder="Choose family member..."
+                        options={policy.dependent.map((item) => ({
+                          value: item.id,
+                          label: `${item.name} - ${item.relation}`,
+                        }))}
+                      />
+                    </div>
+                    <div className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                      <SelectField
+                        label="Cause of loss"
+                        required
+                        value={causeOfLoss}
+                        onChange={handleCauseSelect}
+                        placeholder="Choose cause of loss..."
+                        options={causeOfLossOptions.map((cause) => ({
+                          value: cause,
+                          label: cause,
+                        }))}
+                      />
+                      <SelectField
+                        label="Benefit"
+                        required
+                        value={selectedBenefit}
+                        onChange={setSelectedBenefit}
+                        disabled={!causeOfLoss}
+                        placeholder="Choose benefit..."
+                        options={
+                          causeOfLoss
+                            ? benefitsByCause[
+                                causeOfLoss as (typeof causeOfLossOptions)[number]
+                              ].map((benefit) => ({
+                                value: benefit,
+                                label: benefit,
+                              }))
+                            : []
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-5 flex justify-end">
+                  <button
+                    onClick={goToDetails}
+                    disabled={!patient || !causeOfLoss || !selectedBenefit}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next: Claim details <ChevronRight className="size-4" />
+                  </button>
+                </div>
+              </Section>
+            )}
+
+            {/* ---- step 3: claim details ---- */}
+            {step === "details" && policy && patient && (
+              <Section
+                step="2"
+                title="Claim details"
+                desc="Diagnosis, treatment, amounts and the decision on this claim."
+              >
+                <div className="mt-6 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field
+                    label="Revision date"
+                    value={revisionDate}
+                    type="date"
+                    onChange={setRevisionDate}
+                  />
+                  <Field
+                    label="Intimation date"
+                    value={intimationDate}
+                    required
+                    type="date"
+                    onChange={setIntimationDate}
+                  />
+                  <Field
+                    label="Date of loss"
+                    value={dateOfLoss}
+                    required
+                    type="date"
+                    onChange={setDateOfLoss}
+                  />
+                  <Field
+                    label="Admission date"
+                    value={admissionDate}
+                    required
+                    type="date"
+                    readOnly={isRevision}
+                    onChange={setAdmissionDate}
+                  />
+                  <div className="sm:col-span-2">
+                    <div className="flex items-end gap-2">
+                      <div className="min-w-0 flex-1">
+                        <Field
+                          label="Diagnosis code"
+                          value={diagnosis}
+                          required
+                          readOnly={isRevision}
+                          onChange={setDiagnosis}
+                          placeholder="e.g. LSCS"
+                          hint="ICD code where applicable"
+                        />
+                      </div>
+                      {isRevision && (
+                        <button
+                          type="button"
+                          onClick={() => setShowSecondaryDiagnosis((v) => !v)}
+                          className="mb-1 grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-lg hover:bg-muted"
+                          title="Add secondary diagnosis"
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                    {isRevision && showSecondaryDiagnosis && (
+                      <Field
+                        label="Secondary diagnosis code"
+                        value={secondaryDiagnosis}
+                        onChange={setSecondaryDiagnosis}
+                        placeholder="Enter secondary diagnosis code"
+                      />
+                    )}
+                  </div>
+                  <Field
+                    label="Treatment code"
+                    value={treatment}
+                    required
+                    readOnly={isRevision}
+                    onChange={setTreatment}
+                    placeholder="e.g. CPT-59510"
+                  />
+                  <div>
+                    <div className="flex items-end gap-2">
+                      <div className="min-w-0 flex-1">
+                        <Field
+                          label="Stay (days)"
+                          value={stay}
+                          required
+                          type="number"
+                          readOnly={isRevision}
+                          onChange={setStay}
+                          placeholder="e.g. 2"
+                        />
+                      </div>
+                      {isRevision && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAdditionalStay((v) => !v)}
+                          className="mb-1 grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-lg hover:bg-muted"
+                          title="Add stay days"
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                    {isRevision && showAdditionalStay && (
+                      <Field
+                        label="Additional stay (days)"
+                        value={additionalStay}
+                        type="number"
+                        onChange={setAdditionalStay}
+                        placeholder="Add days"
+                      />
+                    )}
+                  </div>
+                  <Field
+                    label="Discharge date"
+                    value={dischargeDate}
+                    type="date"
+                    readOnly
+                    hint="Calculated from admission date + stay days"
+                  />
+                  <Field
+                    label="Hospital MR No."
+                    value={hospitalMrNo}
+                    onChange={setHospitalMrNo}
+                    placeholder="MR number"
+                  />
+                  <Field
+                    label="Hospital bill No."
+                    value={hospitalBillNo}
+                    onChange={setHospitalBillNo}
+                    placeholder="Bill number"
+                  />
+                  <Field
+                    label="Partner claim No."
+                    value={partnerClaimNo}
+                    onChange={setPartnerClaimNo}
+                    placeholder="Partner reference"
+                  />
+                  <Field
+                    label="Previous claim No."
+                    value={previousClaimNo}
+                    onChange={setPreviousClaimNo}
+                    placeholder="Previous claim reference"
+                  />
+                  <Field
+                    label="Requested amount"
+                    value={reqAmount}
+                    type="number"
+                    onChange={setReqAmount}
+                    placeholder="0"
+                  />
+                  <div>
+                    <div className="flex items-end gap-2">
+                      <div className="min-w-0 flex-1">
+                        <Field
+                          label="Approved amount"
+                          value={approveAmount}
+                          type="number"
+                          readOnly={isRevision}
+                          onChange={setApproveAmount}
+                          placeholder="0"
+                        />
+                      </div>
+                      {isRevision && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAdditionalApproved((v) => !v)}
+                          className="mb-1 grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-surface text-lg hover:bg-muted"
+                          title="Add approved amount"
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                    {isRevision && showAdditionalApproved && (
+                      <Field
+                        label="Additional approved amount"
+                        value={additionalApprovedAmount}
+                        type="number"
+                        onChange={setAdditionalApprovedAmount}
+                        placeholder="Add amount"
+                      />
+                    )}
+                  </div>
+                  <SelectField
+                    label="Hospital"
+                    required
+                    value={hospital}
+                    disabled={isRevision}
+                    onChange={setHospital}
+                    options={hospitalList.map((h) => ({ value: h, label: h }))}
+                  />
+                  <SelectField
+                    label="Status"
+                    required
+                    value={status}
+                    disabled={false}
+                    onChange={setStatus}
+                    options={claimStatusOptions.map((s) => ({
+                      value: s,
+                      label: s,
+                    }))}
+                  />
+                </div>
+
+                <div className="mt-5 flex items-center justify-between">
+                  <button
+                    onClick={() => setStep("identify")}
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
+                  >
+                    <ChevronLeft className="size-4" /> Back
+                  </button>
+                  <button
+                    onClick={goToDocuments}
+                    disabled={!coreFieldsComplete}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next: Documents &amp; remarks{" "}
+                    <ChevronRight className="size-4" />
+                  </button>
+                </div>
+              </Section>
+            )}
+
+            {/* ---- step 4: documents & remarks ---- */}
+            {step === "documents" && policy && patient && (
+              <Section
+                step="3"
+                title="Documents & remarks"
+                desc="Attach whatever's on file, flag anything still needed, then save."
+              >
+                {/* ---- remarks & requirement ---- */}
+                <div className="mt-6 border-t border-border pt-5">
+                  <div className="mb-3">
+                    <h3 className="text-sm font-semibold">
+                      Remarks & requirement
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Tick anything still needed from the claimant, e.g. approve
+                      the case but ask for an additional lab report.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+                    {documentOptions.map((doc) => (
+                      <label
+                        key={doc}
+                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                          requestedDocs.includes(doc)
+                            ? "border-primary/40 bg-primary/10 text-primary"
+                            : "border-border bg-surface hover:bg-muted"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={requestedDocs.includes(doc)}
+                          onChange={() => toggleRequestedDoc(doc)}
+                          disabled={isRevision}
+                          className="size-3.5 accent-primary"
+                        />
+                        {doc}
+                      </label>
+                    ))}
+                  </div>
+
+                  <Field
+                    label="Other document / requirement"
+                    value={otherDocNote}
+                    readOnly={isRevision}
+                    onChange={setOtherDocNote}
+                    placeholder="e.g. Attending physician's report"
+                    wide
+                  />
+
+                  <div className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2">
+                    <label className="block sm:col-span-2">
+                      <span className="label-cap flex items-center gap-1">
+                        Remarks
+                        {remarksRequired && (
+                          <span className="text-destructive">*</span>
+                        )}
+                      </span>
+                      <textarea
+                        value={remarks}
+                        readOnly={isRevision}
+                        onChange={(e) => setRemarks(e.target.value)}
+                        rows={3}
+                        placeholder={
+                          status === "Approve"
+                            ? "Optional — add any notes on this approval"
+                            : "Explain what's missing or why the case was rejected"
+                        }
+                        className="field-underline mt-0.5 w-full resize-none text-sm font-medium"
+                      />
+                      <span className="mt-1 block text-[11px] text-muted-foreground">
+                        {status === "Approve"
+                          ? "Not required when the case is approved."
+                          : "Required when the status is Reject or Requirement Needed."}
+                      </span>
+                      {attemptedSubmit && remarksRequired && !remarksValid && (
+                        <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
+                          <AlertTriangle className="size-3" /> Please add
+                          remarks before submitting.
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                {submitted && (
+                  <p className="mt-5 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
+                    <Check className="size-3.5" /> Claim saved for{" "}
+                    {patient.name} — status: {status || "—"}
+                  </p>
+                )}
+
+                <div className="mt-5 flex items-center justify-between">
+                  <button
+                    onClick={() => setStep("details")}
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-muted"
+                  >
+                    <ChevronLeft className="size-4" /> Back
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!coreFieldsComplete}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lift transition-transform hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Save className="size-4" /> Save &amp; submit
+                  </button>
+                </div>
+              </Section>
+            )}
+          </div>
+
+          <aside
+            className={
+              docMode === "split" ||
+              benefitMode === "split" ||
+              historyMode === "split"
+                ? "xl:sticky xl:top-[180px] xl:h-[calc(100vh-12.5rem)]"
+                : "contents"
+            }
+          >
+            <DocumentsPanel
+              mode={docMode}
+              onModeChange={(mode) => {
+                setDocMode(mode);
+                if (mode === "split") {
+                  setBenefitMode("closed");
+                  setHistoryMode("closed");
+                }
+              }}
+            />
+            <BenefitsPanel
+              mode={benefitMode}
+              onModeChange={(mode) => {
+                setBenefitMode(mode);
+                if (mode === "split") {
+                  setDocMode("closed");
+                  setHistoryMode("closed");
+                }
+              }}
+              causeOfLoss={causeOfLoss}
+              selectedBenefit={selectedBenefit}
+              memberName={patient?.name}
+              underwritingTerms={policy?.underwritingTerms}
+              selectedMember={patient}
+            />
+            <ClientHistoryPanel
+              mode={historyMode}
+              onModeChange={(mode) => {
+                setHistoryMode(mode);
+                if (mode === "split") {
+                  setDocMode("closed");
+                  setBenefitMode("closed");
+                }
+              }}
+              history={claimHistory}
+            />
+          </aside>
+        </div>
       </div>
       {approvalLetterOpen && (
         <ApprovalLetterModal onClose={() => setApprovalLetterOpen(false)} />

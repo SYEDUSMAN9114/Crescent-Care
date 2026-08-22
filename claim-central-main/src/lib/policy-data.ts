@@ -258,6 +258,27 @@ export function lookupPolicy(cardOrCnic: string): policy | null {
   );
 }
 
+export function lookupPoliciesByClientName(clientName: string): policy[] {
+  const q = clientName.trim().toLowerCase();
+  if (!q) return policyDatabase;
+  return policyDatabase.filter((p) => p.clientName.toLowerCase().includes(q));
+}
+
+export function lookupPolicyByClientAndIdentity(
+  clientName: string,
+  cardOrCnic: string,
+): policy | null {
+  const identity = cardOrCnic.trim().toLowerCase();
+  if (!identity) return null;
+  const normalized = identity.replace(/-/g, "");
+  return (
+    lookupPoliciesByClientName(clientName).find((p) => {
+      const value = p.cardOrCnic.toLowerCase();
+      return value === identity || value.replace(/-/g, "") === normalized;
+    }) ?? null
+  );
+}
+
 export function lookupClaimHistory(cardOrCnic: string): ClaimHistoryItem[] {
   const q = cardOrCnic.trim().toLowerCase();
   if (!q) return [];

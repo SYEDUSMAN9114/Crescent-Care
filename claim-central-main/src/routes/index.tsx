@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BadgeCheck,
+  ChevronDown,
   ClipboardList,
   FilePlus2,
   Gauge,
@@ -42,28 +43,52 @@ const parseClaimDate = (claim: Claim) => {
   return new Date(year, month - 1, day).getTime();
 };
 
+const getClaimYear = (claim: Claim) => {
+  const [day, month, year] = claim.intimationDate.split("/").map(Number);
+  return new Date(year, month - 1, day).getFullYear();
+};
+
 function DashboardPage() {
-  const totals = useMemo(
-    () => ({
-      intimations: claims.length,
-      awaitingApproval: claims.filter((claim) => claim.status === "Revised")
-        .length,
-      requirementNeeded: claims.filter(
-        (claim) => claim.status === "Requirement Needed",
-      ).length,
-      awaitingSettlement: claims.filter((claim) => claim.status !== "Posted")
-        .length,
-      settled: claims.filter((claim) => claim.status === "Full & Final").length,
-      posted: claims.filter((claim) => claim.status === "Posted").length,
-    }),
+  const years = useMemo(
+    () => Array.from(new Set(claims.map(getClaimYear))).sort((a, b) => b - a),
     [],
   );
+  const [year, setYear] = useState(years[0] ?? 2026);
+  const visibleClaims = useMemo(
+    () => claims.filter((claim) => getClaimYear(claim) === year),
+    [year],
+  );
+  const totals = useMemo(
+    () => ({
+      intimations: visibleClaims.length,
+      awaitingApproval: visibleClaims.filter(
+        (claim) => claim.status === "Revised",
+      ).length,
+      requirementNeeded: visibleClaims.filter(
+        (claim) => claim.status === "Requirement Needed",
+      ).length,
+      awaitingSettlement: visibleClaims.filter(
+        (claim) => claim.status !== "Posted",
+      ).length,
+      settled: visibleClaims.filter((claim) => claim.status === "Full & Final")
+        .length,
+      posted: visibleClaims.filter((claim) => claim.status === "Posted").length,
+    }),
+    [visibleClaims],
+  );
 
-  const performance = [
-    { period: "Today", resolved: 9, target: 12 },
-    { period: "This week", resolved: 42, target: 55 },
-    { period: "This month", resolved: 168, target: 210 },
-  ];
+  const performance = useMemo(
+    () => [
+      { period: "Today", resolved: Math.min(totals.settled, 9), target: 12 },
+      {
+        period: "This week",
+        resolved: totals.settled + totals.posted,
+        target: 55,
+      },
+      { period: "This month", resolved: totals.intimations, target: 210 },
+    ],
+    [totals],
+  );
 
   const metricCards = [
     {
@@ -106,14 +131,31 @@ function DashboardPage() {
     },
   ];
 
-  const recentClaims = [...claims].sort(
+  const recentClaims = [...visibleClaims].sort(
     (a, b) => parseClaimDate(b) - parseClaimDate(a),
   );
 
   return (
     <AppShell
       title="Dashboard"
-      subtitle="Claims overview for login year 2026"
+      subtitle={`Claims overview for year ${year}`}
+      yearControl={
+        <label className="relative flex items-center">
+          <select
+            value={year}
+            onChange={(event) => setYear(Number(event.target.value))}
+            className="h-8 appearance-none rounded-lg bg-transparent py-1.5 pl-2 pr-7 text-xs font-medium text-muted-foreground outline-none hover:bg-muted focus:bg-muted"
+            aria-label="Claim year"
+          >
+            {years.map((item) => (
+              <option key={item} value={item}>
+                Year {item}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 size-3.5 text-muted-foreground" />
+        </label>
+      }
       actions={
         <div className="flex items-center gap-2">
           <Link

@@ -54,11 +54,13 @@ export function AppShell({
   title,
   subtitle,
   actions,
+  yearControl,
 }: {
   children: ReactNode;
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  yearControl?: ReactNode;
 }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [expanded, setExpanded] = useState(true);
@@ -90,9 +92,11 @@ export function AppShell({
             Crescent Care
           </span>
           <div className="ml-auto flex items-center gap-3">
-            <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
-              Year 2026 <ChevronDown className="size-3.5" />
-            </button>
+            {yearControl ?? (
+              <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
+                Year 2026 <ChevronDown className="size-3.5" />
+              </button>
+            )}
             <button className="relative grid size-8 place-items-center rounded-lg hover:bg-muted">
               <Bell className="size-4" strokeWidth={1.75} />
               <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
